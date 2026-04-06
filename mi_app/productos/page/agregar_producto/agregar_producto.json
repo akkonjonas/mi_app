@@ -1,0 +1,7 @@
+{
+ "doctype": "Page",
+ "name": "agregar-producto",
+ "module": "Productos",
+ "title": "Agregar Producto",
+ "standard": "Yes"
+}

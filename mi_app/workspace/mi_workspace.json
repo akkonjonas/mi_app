@@ -1,0 +1,8 @@
+{
+ "doctype": "Workspace",
+ "label": "Mi App",
+ "module": "Productos",
+ "type": "Workspace",
+ "content": "[{\"type\":\"shortcut\",\"data\":{\"label\":\"Agregar Producto\",\"link_to\":\"Page\",\"link\":\"agregar-producto\"}}]",
+ "public": 1
+}
