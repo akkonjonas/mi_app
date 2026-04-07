@@ -33,20 +33,6 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                     </div>
                 </div>
                 <div class="col">
-                    <label>Subcategoría</label>
-                    <div class="input-group">
-                        <select id="subcategoria" class="form-control">
-                            <option value="">Seleccionar...</option>
-                        </select>
-                        <span class="input-group-btn">
-                            <button type="button" class="btn btn-default" onclick="agregarNuevaSubcategoria()" title="Agregar nueva subcategoría">+</button>
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="col">
                     <label>Categoría *</label>
                     <div class="input-group">
                         <select id="categoria" class="form-control">
@@ -54,6 +40,20 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                         </select>
                         <span class="input-group-btn">
                             <button type="button" class="btn btn-default" onclick="agregarNuevaCategoria()" title="Agregar nueva categoría">+</button>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="col">
+                    <label>Subcategoría</label>
+                    <div class="input-group">
+                        <select id="subcategoria" class="form-control">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-default" onclick="agregarNuevaSubcategoria()" title="Agregar nueva subcategoría">+</button>
                         </span>
                     </div>
                 </div>
