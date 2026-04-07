@@ -8,6 +8,48 @@ def get_warehouses():
 	return [w.name for w in warehouses]
 
 
+@frappe.whitelist()
+def get_item_groups():
+	grupos = frappe.get_all("Item Group", fields=["name"], order_by="name")
+	return [g.name for g in grupos]
+
+
+@frappe.whitelist()
+def get_brands():
+	marcas = frappe.get_all("Brand", fields=["name"], order_by="name")
+	return [m.name for m in marcas]
+
+
+@frappe.whitelist()
+def generar_barcodes_default(nombre, talles):
+	lista_talles = [t.strip() for t in talles.split(",") if t.strip()]
+	barcodes = {}
+	for t in lista_talles:
+		barcodes[t] = generar_barcode(nombre, t)
+	return barcodes
+
+
+@frappe.whitelist()
+def crear_item_group(nombre):
+	if not frappe.db.exists("Item Group", nombre):
+		frappe.get_doc(
+			{
+				"doctype": "Item Group",
+				"item_group_name": nombre,
+				"parent_item_group": obtener_grupo_raiz(),
+				"is_group": 0,
+			}
+		).insert()
+	return nombre
+
+
+@frappe.whitelist()
+def crear_brand(nombre):
+	if not frappe.db.exists("Brand", nombre):
+		frappe.get_doc({"doctype": "Brand", "brand": nombre}).insert()
+	return nombre
+
+
 def obtener_grupo_raiz():
 	grupo = frappe.get_all(
 		"Item Group",
@@ -50,11 +92,15 @@ def crear_atributo_talle(talles):
 
 # 🔥 Generar código de barras
 def generar_barcode(nombre, talle):
-	return f"{nombre[:5].upper()}{talle}{frappe.generate_hash(length=5)}"
+	nombre_limpio = nombre.replace(" ", "").upper()
+	talle_limpio = talle.upper()
+	return f"{nombre_limpio}{talle_limpio}"
 
 
 # 🔹 Crear variante
-def crear_variante_manual(template, talle, precio, categoria):
+def crear_variante_manual(
+	template, talle, precio, categoria, marca, subcategoria, barcode_personalizado=None
+):
 	nombre_variante = f"{template}-{talle}"
 
 	if frappe.db.exists("Item", nombre_variante):
@@ -67,17 +113,15 @@ def crear_variante_manual(template, talle, precio, categoria):
 			"item_name": f"{template} {talle}",
 			"variant_of": template,
 			"standard_rate": float(precio),
-			"item_group": categoria,
+			"item_group": subcategoria if subcategoria else categoria,
+			"brand": marca,
 			"is_stock_item": 1,
 		}
 	)
 
-	# 🔹 atributo
 	variante.append("attributes", {"attribute": "Talle", "attribute_value": talle})
 
-	# 🔥 código de barras
-	barcode = generar_barcode(template, talle)
-
+	barcode = barcode_personalizado if barcode_personalizado else generar_barcode(template, talle)
 	variante.append("barcodes", {"barcode": barcode})
 
 	variante.insert()
@@ -125,7 +169,18 @@ def crear_stock(items, warehouse, cantidades):
 
 # 🔥 FUNCIÓN PRINCIPAL
 @frappe.whitelist()
-def crear_producto(nombre, descripcion, marca, categoria, precio, talles, warehouse=None, cantidades=None):
+def crear_producto(
+	nombre,
+	descripcion,
+	marca,
+	categoria,
+	precio,
+	talles,
+	warehouse=None,
+	cantidades=None,
+	subcategoria=None,
+	barcodes_variantes=None,
+):
 	# 🔴 VALIDACIONES
 	if not nombre:
 		frappe.throw("El nombre del producto es obligatorio")
@@ -146,6 +201,12 @@ def crear_producto(nombre, descripcion, marca, categoria, precio, talles, wareho
 
 	if not cantidades:
 		cantidades = {}
+
+	if isinstance(barcodes_variantes, str):
+		barcodes_variantes = json.loads(barcodes_variantes)
+
+	if not barcodes_variantes:
+		barcodes_variantes = {}
 
 	# 🔹 Categoría
 	if not frappe.db.exists("Item Group", categoria):
@@ -188,7 +249,10 @@ def crear_producto(nombre, descripcion, marca, categoria, precio, talles, wareho
 	items_creados = []
 
 	for t in lista_talles:
-		item_code = crear_variante_manual(nombre, t, precio, categoria)
+		barcode_personalizado = barcodes_variantes.get(t) if barcodes_variantes else None
+		item_code = crear_variante_manual(
+			nombre, t, precio, categoria, marca, subcategoria, barcode_personalizado
+		)
 		items_creados.append(item_code)
 
 	# 🔥 CREAR STOCK
@@ -196,3 +260,92 @@ def crear_producto(nombre, descripcion, marca, categoria, precio, talles, wareho
 		crear_stock(items_creados, warehouse, cantidades)
 
 	return "Producto + stock + códigos de barras creados correctamente"
+
+
+@frappe.whitelist()
+def generar_etiquetas_html(etiquetas):
+	if isinstance(etiquetas, str):
+		etiquetas = json.loads(etiquetas)
+
+	html = """
+	<!DOCTYPE html>
+	<html>
+	<head>
+		<title>Etiquetas</title>
+		<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+		<style>
+			@page { size: 50mm 25mm; margin: 0; }
+			body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+			.etiqueta {
+				width: 50mm;
+				height: 25mm;
+				float: left;
+				box-sizing: border-box;
+				padding: 2mm;
+				border: 1px dashed #ccc;
+				overflow: hidden;
+			}
+			.etiqueta .nombre {
+				font-size: 8px;
+				font-weight: bold;
+				text-align: center;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.etiqueta .talle {
+				font-size: 10px;
+				text-align: center;
+				margin: 1mm 0;
+			}
+			.etiqueta svg {
+				width: 100%;
+				height: 20mm;
+			}
+		</style>
+	</head>
+	<body>
+	"""
+
+	for i, etiqueta in enumerate(etiquetas):
+		nombre = etiqueta.get("nombre", "")
+		talle = etiqueta.get("talle", "")
+		barcode = etiqueta.get("barcode", "")
+		html += f"""
+		<div class="etiqueta">
+			<div class="nombre">{nombre}</div>
+			<div class="talle">{talle}</div>
+			<svg id="barcode-{i}"></svg>
+		</div>
+		"""
+
+	html += """
+	<script>
+	"""
+
+	barcodes_js = ""
+	for i, etiqueta in enumerate(etiquetas):
+		barcode = etiqueta.get("barcode", "")
+		barcodes_js += f"""
+		try {{
+			JsBarcode("#barcode-{i}", "{barcode}", {{
+				format: "CODE128",
+				width: 2,
+				height: 30,
+				displayValue: true,
+				fontSize: 10,
+				margin: 5
+			}});
+		}} catch(e) {{ console.log("Error: " + "{barcode}"); }}
+		"""
+
+	html += (
+		barcodes_js
+		+ """
+	</script>
+	</body>
+	</html>
+	"""
+	)
+
+	return html

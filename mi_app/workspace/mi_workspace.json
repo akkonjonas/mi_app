@@ -3,6 +3,22 @@
  "label": "Mi App",
  "module": "Productos",
  "type": "Workspace",
- "content": "[{\"type\":\"shortcut\",\"data\":{\"label\":\"Agregar Producto\",\"link_to\":\"Page\",\"link\":\"agregar-producto\"}}]",
+ "icon": "box",
+ "shortcuts": [
+  {
+   "label": "Agregar Producto",
+   "link_to": "agregar-producto",
+   "type": "Page",
+   "doc_view": "List",
+   "color": "Blue"
+  },
+  {
+   "label": "Gestión de Stock",
+   "link_to": "gestion-stock",
+   "type": "Page",
+   "doc_view": "List",
+   "color": "Green"
+  }
+ ],
  "public": 1
 }
