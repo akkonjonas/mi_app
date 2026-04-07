@@ -6,6 +6,8 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
         single_column: true
     });
 
+    window.productosCreados = [];
+
     $(wrapper).html(`
         <div class="form-layout">
             <h3>Nuevo Producto</h3>
@@ -82,6 +84,13 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
 
             <button onclick="actualizarTalles()" class="btn btn-default">Agregar Talles</button>
             <button onclick="crearProducto()" class="btn btn-primary">Guardar</button>
+            <button onclick="limpiarFormulario()" class="btn btn-default">Limpiar</button>
+            <button onclick="imprimirTodasEtiquetas()" class="btn btn-info" style="display:none;" id="btn-imprimir-todas">Imprimir Todas las Etiquetas</button>
+        </div>
+        
+        <div class="form-layout" style="margin-top: 30px;">
+            <h4>Productos Creados</h4>
+            <div id="lista-productos-creados"></div>
         </div>
     `);
 
@@ -274,18 +283,87 @@ function crearProducto() {
         callback: function(r) {
             frappe.msgprint("Producto creado correctamente");
             
-            if (Object.keys(cantidades).length > 0) {
-                frappe.confirm(
-                    '¿Desea imprimir las etiquetas de código de barras?',
-                    function() {
-                        imprimirEtiquetas($("#nombre").val(), cantidades, barcodes_variantes);
-                    },
-                    function() {
-                        window.location.reload();
-                    }
-                );
-            } else {
-                window.location.reload();
+            let producto = {
+                nombre: $("#nombre").val(),
+                cantidades: cantidades,
+                barcodes: barcodes_variantes
+            };
+            window.productosCreados.push(producto);
+            
+            actualizarListaProductos();
+            limpiarFormulario();
+        }
+    });
+}
+
+function limpiarFormulario() {
+    $("#nombre").val("");
+    $("#descripcion").val("");
+    $("#marca").val("");
+    $("#categoria").val("");
+    $("#subcategoria").val("");
+    $("#precio").val("");
+    $("#talles").val("");
+    $("#cantidades-talles").html("");
+    $("#talles-container").hide();
+    $("#nombre").focus();
+}
+
+function actualizarListaProductos() {
+    let container = $("#lista-productos-creados");
+    container.html("");
+    
+    window.productosCreados.forEach(function(prod, index) {
+        let talles = Object.keys(prod.cantidades).join(", ");
+        let html = `
+            <div class="form-row" style="margin-bottom: 5px; padding: 5px; border-bottom: 1px solid #eee;">
+                <div class="col-md-4"><strong>${prod.nombre}</strong></div>
+                <div class="col-md-4">Talles: ${talles}</div>
+                <div class="col-md-4">Cantidades: ${Object.values(prod.cantidades).reduce((a,b)=>a+b, 0)}</div>
+            </div>
+        `;
+        container.append(html);
+    });
+    
+    if (window.productosCreados.length > 0) {
+        $("#btn-imprimir-todas").show();
+    }
+}
+
+function imprimirTodasEtiquetas() {
+    let todasEtiquetas = [];
+    
+    window.productosCreados.forEach(function(prod) {
+        for (let [talle, qty] of Object.entries(prod.cantidades)) {
+            let barcode = prod.barcodes[talle] || "";
+            for (let i = 0; i < qty; i++) {
+                todasEtiquetas.push({
+                    nombre: prod.nombre,
+                    talle: talle,
+                    barcode: barcode
+                });
+            }
+        }
+    });
+    
+    if (todasEtiquetas.length === 0) {
+        frappe.msgprint("No hay etiquetas para imprimir");
+        return;
+    }
+    
+    frappe.call({
+        method: "mi_app.productos.page.agregar_producto.agregar_producto.generar_etiquetas_html",
+        args: {
+            etiquetas: JSON.stringify(todasEtiquetas)
+        },
+        callback: function(r) {
+            if (r.message) {
+                let printWindow = window.open('', '_blank');
+                printWindow.document.write(r.message);
+                printWindow.document.close();
+                setTimeout(function() {
+                    printWindow.print();
+                }, 500);
             }
         }
     });
