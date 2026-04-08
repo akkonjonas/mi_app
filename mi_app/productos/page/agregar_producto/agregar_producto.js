@@ -7,7 +7,8 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
     });
 
     window.productosCreados = [];
-    window.tabIndex = 10;
+    window.esEdicion = false;
+    window.nombreOriginalEdicion = null;
 
     $(wrapper).html(`
         <style>
@@ -141,32 +142,47 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
             }
             .producto-acciones {
                 display: flex;
-                gap: 8px;
+                gap: 15px;
             }
             .btn-icon {
-                padding: 6px 10px;
+                background: transparent;
                 border: none;
-                border-radius: 5px;
                 cursor: pointer;
-                font-size: 14px;
+                font-size: 18px;
+                padding: 5px 8px;
+                opacity: 0.7;
+                transition: opacity 0.2s;
             }
-            .btn-editar {
-                background: #f39c12;
-                color: white;
-            }
-            .btn-eliminar {
-                background: #e74c3c;
-                color: white;
-            }
-            .btn-imprimir-item {
-                background: #9b59b6;
-                color: white;
+            .btn-icon:hover {
+                opacity: 1;
             }
             .ayuda-panel {
                 background: #ecf0f1;
                 border-radius: 10px;
-                padding: 20px;
+                padding: 0;
                 margin-top: 30px;
+                overflow: hidden;
+            }
+            .ayuda-panel .panel-header {
+                background: #bdc3c7;
+                color: #2c3e50;
+                padding: 12px 15px;
+                cursor: pointer;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin: 0;
+                border-radius: 10px 10px 0 0;
+            }
+            .ayuda-panel .panel-header:hover {
+                background: #aab7b8;
+            }
+            .ayuda-panel .panel-content {
+                padding: 15px 20px;
+                display: none;
+            }
+            .ayuda-panel .panel-content.show {
+                display: block;
             }
             .ayuda-panel h4 {
                 color: #2c3e50;
@@ -318,19 +334,24 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
             </div>
             
             <div class="ayuda-panel">
-                <h4>📖 Guía de Uso</h4>
-                <ol>
-                    <li><strong>Nombre y Descripción:</strong> Complete los datos básicos del producto (campos obligatorios).</li>
-                    <li><strong>Marca y Categoría:</strong> Seleccione del listado o cree nuevas opciones con el botón +.</li>
-                    <li><strong>Precio:</strong> Ingrese el precio de venta del producto (obligatorio).</li>
-                    <li><strong>Warehouse:</strong> Seleccione el almacén donde se guardará el stock.</li>
-                    <li><strong>Stock Mínimo:</strong> Active esta opción si desea agregar una cantidad base a todas las variantes.</li>
-                    <li><strong>Atributos:</strong> Ingrese los talles/colores separados por coma (campo obligatorio).</li>
-                    <li><strong>Agregar Atributos:</strong> Haga clic para crear los campos de stock y código de barras.</li>
-                    <li><strong>Stock y Códigos:</strong> Complete las cantidades y opcionalmente modifique los códigos de barras.</li>
-                    <li><strong>Guardar:</strong> El producto se crea y queda en lista para imprimir etiquetas.</li>
-                    <li><strong>Imprimir:</strong> Genere las etiquetas con códigos de barras para pegar en los productos.</li>
-                </ol>
+                <div class="panel-header" onclick="toggleAyuda()">
+                    <h4 style="margin:0;">📖 Guía de Uso</h4>
+                    <span id="ayuda-toggle-icon">▼</span>
+                </div>
+                <div class="panel-content" id="ayuda-contenido">
+                    <ol>
+                        <li><strong>Nombre y Descripción:</strong> Complete los datos básicos del producto (campos obligatorios).</li>
+                        <li><strong>Marca y Categoría:</strong> Seleccione del listado o cree nuevas opciones con el botón +.</li>
+                        <li><strong>Precio:</strong> Ingrese el precio de venta del producto (obligatorio).</li>
+                        <li><strong>Warehouse:</strong> Seleccione el almacén donde se guardará el stock.</li>
+                        <li><strong>Stock Mínimo:</strong> Active esta opción si desea agregar una cantidad base a todas las variantes.</li>
+                        <li><strong>Atributos:</strong> Ingrese los talles/colores separados por coma (campo obligatorio).</li>
+                        <li><strong>Agregar Atributos:</strong> Haga clic para crear los campos de stock y código de barras.</li>
+                        <li><strong>Stock y Códigos:</strong> Complete las cantidades y opcionalmente modifique los códigos de barras.</li>
+                        <li><strong>Guardar:</strong> El producto se crea y queda en lista para imprimir etiquetas.</li>
+                        <li><strong>Imprimir:</strong> Genere las etiquetas con códigos de barras para pegar en los productos.</li>
+                    </ol>
+                </div>
             </div>
             
             <div class="footer-credits">
@@ -349,6 +370,11 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
         $("#stock-minimo-container").toggle(this.checked);
     });
 };
+
+function toggleAyuda() {
+    $("#ayuda-contenido").toggleClass("show");
+    $("#ayuda-toggle-icon").text($("#ayuda-contenido").hasClass("show") ? "▲" : "▼");
+}
 
 function cargarWarehouses() {
     frappe.call({
@@ -553,13 +579,15 @@ function crearProducto() {
             warehouse: $("#warehouse").val(),
             talles: $("#talles").val(),
             cantidades: cantidades,
-            barcodes_variantes: barcodes_variantes
+            barcodes_variantes: barcodes_variantes,
+            es_edicion: window.esEdicion || false,
+            nombre_original: window.nombreOriginalEdicion || null
         },
         callback: function(r) {
-            frappe.msgprint("Producto creado correctamente");
+            frappe.msgprint("Producto guardado correctamente");
             
-            let usarStockMinimo = $("#usar-stock-minimo").is(":checked");
-            let stockMinimo = parseInt($("#stock-minimo").val()) || 0;
+            window.esEdicion = false;
+            window.nombreOriginalEdicion = null;
             
             let producto = {
                 nombre: $("#nombre").val(),
@@ -595,6 +623,8 @@ function limpiarFormulario() {
     $("#usar-stock-minimo").prop("checked", false);
     $("#stock-minimo-container").hide();
     $("#stock-minimo").val("1");
+    window.esEdicion = false;
+    window.nombreOriginalEdicion = null;
     $("#nombre").focus();
 }
 
@@ -667,6 +697,8 @@ function editarProducto(index) {
     }, 100);
     
     window.productosCreados.splice(index, 1);
+    window.esEdicion = true;
+    window.nombreOriginalEdicion = prod.nombre;
     actualizarListaProductos();
     
     frappe.msgprint("Editando producto: " + prod.nombre);

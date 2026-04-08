@@ -182,6 +182,8 @@ def crear_producto(
 	cantidades=None,
 	subcategoria=None,
 	barcodes_variantes=None,
+	es_edicion=False,
+	nombre_original=None,
 ):
 	# 🔴 VALIDACIONES
 	if not nombre:
@@ -193,8 +195,13 @@ def crear_producto(
 	if precio is None or precio == "":
 		frappe.throw("El precio es obligatorio")
 
-	if frappe.db.exists("Item", nombre):
-		frappe.throw(f"El producto '{nombre}' ya existe")
+	if es_edicion:
+		if nombre_original and nombre_original != nombre:
+			if frappe.db.exists("Item", nombre):
+				frappe.throw(f"El producto '{nombre}' ya existe")
+	else:
+		if frappe.db.exists("Item", nombre):
+			frappe.throw(f"El producto '{nombre}' ya existe")
 
 	if not categoria:
 		frappe.throw("La categoría es obligatoria")
@@ -219,19 +226,25 @@ def crear_producto(
 	if not barcodes_variantes:
 		barcodes_variantes = {}
 
-	barcodes_a_verificar = {}
-	for t in lista_talles:
-		barcodes_a_verificar[t] = (
-			barcodes_variantes.get(t) if barcodes_variantes.get(t) else generar_barcode(nombre, t)
-		)
+	if not es_edicion:
+		for talle in lista_talles:
+			nombre_variante = f"{nombre}-{talle}"
+			if frappe.db.exists("Item", nombre_variante):
+				frappe.throw(f"La variante '{nombre_variante}' ya existe")
 
-	for talle, barcode in barcodes_a_verificar.items():
-		if barcode:
-			barcode_existe = frappe.db.sql(
-				"SELECT COUNT(*) FROM `tabItem Barcode` WHERE barcode = %s", (barcode,)
-			)[0][0]
-			if barcode_existe > 0:
-				frappe.throw(f"El código de barras '{barcode}' ya está en uso")
+		barcodes_a_verificar = {}
+		for t in lista_talles:
+			barcodes_a_verificar[t] = (
+				barcodes_variantes.get(t) if barcodes_variantes.get(t) else generar_barcode(nombre, t)
+			)
+
+		for talle, barcode in barcodes_a_verificar.items():
+			if barcode:
+				barcode_existe = frappe.db.sql(
+					"SELECT COUNT(*) FROM `tabItem Barcode` WHERE barcode = %s", (barcode,)
+				)[0][0]
+				if barcode_existe > 0:
+					frappe.throw(f"El código de barras '{barcode}' ya está en uso")
 
 	# 🔹 Categoría (solo crea si no existe - el usuario selecciona del dropdown)
 	if not frappe.db.exists("Item Group", categoria):
