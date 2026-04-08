@@ -438,15 +438,15 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                 <div style="padding: 15px;">
                     <div class="form-row" style="margin-bottom: 15px;">
                         <div class="col-md-4">
-                            <input type="text" id="item-search" class="form-control" placeholder="Buscar producto...">
+                            <input type="text" id="item-search" class="form-control" placeholder="Buscar producto..." onkeyup="filtrarItems()">
                         </div>
                         <div class="col-md-3">
-                            <select id="item-marca" class="form-control">
+                            <select id="item-marca" class="form-control" onchange="cargarItems()">
                                 <option value="">Todas las marcas</option>
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <select id="item-categoria" class="form-control">
+                            <select id="item-categoria" class="form-control" onchange="cargarItems()">
                                 <option value="">Todas las categorías</option>
                             </select>
                         </div>
@@ -472,17 +472,6 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
     cargarFiltrosItems();
     cargarItems();
     
-    setTimeout(function() {
-        $("#item-search").on("input", function() {
-            clearTimeout(window.itemsTimeout);
-            window.itemsTimeout = setTimeout(cargarItems, 300);
-        });
-        
-        $("#item-marca, #item-categoria").on("change", function() {
-            cargarItems();
-        });
-    }, 100);
-    
     $("#usar-stock-minimo").change(function() {
         $("#stock-minimo-container").toggle(this.checked);
     });
@@ -491,6 +480,12 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
 function toggleAyuda() {
     $("#ayuda-contenido").toggleClass("show");
     $("#ayuda-toggle-icon").text($("#ayuda-contenido").hasClass("show") ? "▲" : "▼");
+}
+
+let filtrarTimeout;
+function filtrarItems() {
+    clearTimeout(filtrarTimeout);
+    filtrarTimeout = setTimeout(cargarItems, 300);
 }
 
 function cargarFiltrosItems() {
