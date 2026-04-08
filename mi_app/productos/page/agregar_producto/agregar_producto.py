@@ -387,3 +387,37 @@ def generar_etiquetas_html(etiquetas):
 	)
 
 	return html
+
+
+@frappe.whitelist()
+def get_items_list(filters=None):
+	if isinstance(filters, str):
+		filters = json.loads(filters) if filters else {}
+
+	f = {"is_stock_item": 1, "variant_of": ["!=", ""]}
+
+	if filters.get("search"):
+		f["item_code"] = ["like", f"%{filters.get('search')}%"]
+	if filters.get("marca"):
+		f["brand"] = filters.get("marca")
+	if filters.get("categoria"):
+		f["item_group"] = filters.get("categoria")
+
+	items = frappe.get_all(
+		"Item",
+		filters=f,
+		fields=["name", "item_code", "item_name", "brand", "item_group", "standard_rate", "qty"],
+		order_by="modified desc",
+		limit=50,
+	)
+
+	return [
+		{
+			"name": i.name,
+			"item_code": i.item_code,
+			"brand": i.brand or "",
+			"item_group": i.item_group or "",
+			"precio": i.standard_rate or 0,
+		}
+		for i in items
+	]

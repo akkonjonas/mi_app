@@ -431,6 +431,33 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                 </div>
             </div>
             
+            <div class="panel-custom" style="margin-top: 30px;">
+                <div class="panel-header" style="background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);">
+                    <h4 style="margin:0;">📦 Lista de Productos</h4>
+                </div>
+                <div style="padding: 15px;">
+                    <div class="form-row" style="margin-bottom: 15px;">
+                        <div class="col-md-4">
+                            <input type="text" id="item-search" class="form-control" placeholder="Buscar producto...">
+                        </div>
+                        <div class="col-md-3">
+                            <select id="item-marca" class="form-control">
+                                <option value="">Todas las marcas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select id="item-categoria" class="form-control">
+                                <option value="">Todas las categorías</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button onclick="cargarItems()" class="btn btn-primary btn-block">🔍</button>
+                        </div>
+                    </div>
+                    <div id="items-grid" style="max-height: 400px; overflow-y: auto;"></div>
+                </div>
+            </div>
+            
             <div class="footer-credits">
                 <p>🔧 Desarrollado por <strong>Saltamontech - Silva Jonás</strong></p>
                 <p>📦 <strong>Todos los derechos reservados para Odín Suite</strong></p>
@@ -442,6 +469,8 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
     cargarWarehouses();
     cargarItemGroups();
     cargarMarcas();
+    cargarFiltrosItems();
+    cargarItems();
     
     $("#usar-stock-minimo").change(function() {
         $("#stock-minimo-container").toggle(this.checked);
@@ -452,6 +481,85 @@ function toggleAyuda() {
     $("#ayuda-contenido").toggleClass("show");
     $("#ayuda-toggle-icon").text($("#ayuda-contenido").hasClass("show") ? "▲" : "▼");
 }
+
+function cargarFiltrosItems() {
+    frappe.call({
+        method: "mi_app.productos.page.agregar_producto.agregar_producto.get_brands",
+        callback: function(r) {
+            if (r.message) {
+                r.message.forEach(function(m) {
+                    $("#item-marca").append(new Option(m, m));
+                });
+            }
+        }
+    });
+    
+    frappe.call({
+        method: "mi_app.productos.page.agregar_producto.agregar_producto.get_item_groups",
+        callback: function(r) {
+            if (r.message) {
+                r.message.forEach(function(g) {
+                    $("#item-categoria").append(new Option(g, g));
+                });
+            }
+        }
+    });
+}
+
+function cargarItems() {
+    let search = $("#item-search").val();
+    let marca = $("#item-marca").val();
+    let categoria = $("#item-categoria").val();
+    
+    $("#items-grid").html('<div class="text-center text-muted p-3">Cargando...</div>');
+    
+    frappe.call({
+        method: "mi_app.productos.page.agregar_producto.agregar_producto.get_items_list",
+        args: {
+            filters: JSON.stringify({search: search, marca: marca, categoria: categoria})
+        },
+        callback: function(r) {
+            if (r.message && r.message.length > 0) {
+                let html = `
+                    <table class="table table-bordered table-sm">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Marca</th>
+                                <th>Categoría</th>
+                                <th>Precio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                r.message.forEach(function(item) {
+                    html += `
+                        <tr>
+                            <td>${item.item_code}</td>
+                            <td>${item.brand || '-'}</td>
+                            <td>${item.item_group || '-'}</td>
+                            <td class="text-right">${parseFloat(item.precio || 0).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                html += '</tbody></table>';
+                $("#items-grid").html(html);
+            } else {
+                $("#items-grid").html('<div class="text-center text-muted p-3">No se encontraron productos</div>');
+            }
+        }
+    });
+}
+
+let itemsTimeout;
+$("#item-search").on("input", function() {
+    clearTimeout(itemsTimeout);
+    itemsTimeout = setTimeout(cargarItems, 300);
+});
+
+$("#item-marca, #item-categoria").on("change", function() {
+    cargarItems();
+});
 
 function cargarWarehouses() {
     frappe.call({
