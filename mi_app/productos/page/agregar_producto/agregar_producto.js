@@ -472,6 +472,17 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
     cargarFiltrosItems();
     cargarItems();
     
+    setTimeout(function() {
+        $("#item-search").on("input", function() {
+            clearTimeout(window.itemsTimeout);
+            window.itemsTimeout = setTimeout(cargarItems, 300);
+        });
+        
+        $("#item-marca, #item-categoria").on("change", function() {
+            cargarItems();
+        });
+    }, 100);
+    
     $("#usar-stock-minimo").change(function() {
         $("#stock-minimo-container").toggle(this.checked);
     });
@@ -552,15 +563,6 @@ function cargarItems() {
 }
 
 let itemsTimeout;
-$("#item-search").on("input", function() {
-    clearTimeout(itemsTimeout);
-    itemsTimeout = setTimeout(cargarItems, 300);
-});
-
-$("#item-marca, #item-categoria").on("change", function() {
-    cargarItems();
-});
-
 function cargarWarehouses() {
     frappe.call({
         method: "mi_app.productos.page.agregar_producto.agregar_producto.get_warehouses",
