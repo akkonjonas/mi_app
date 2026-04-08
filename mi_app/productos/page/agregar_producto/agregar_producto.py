@@ -187,16 +187,25 @@ def crear_producto(
 	if not nombre:
 		frappe.throw("El nombre del producto es obligatorio")
 
+	if not descripcion:
+		frappe.throw("La descripción es obligatoria")
+
+	if precio is None or precio == "":
+		frappe.throw("El precio es obligatorio")
+
+	if frappe.db.exists("Item", nombre):
+		frappe.throw(f"El producto '{nombre}' ya existe")
+
 	if not categoria:
 		frappe.throw("La categoría es obligatoria")
 
-	if precio is not None and float(precio) < 0:
-		frappe.throw("El precio no puede ser negativo")
+	if not talles or not talles.strip():
+		frappe.throw("Los atributos son obligatorios")
 
 	lista_talles = [t.strip().replace(".", "") for t in talles.split(",") if t.strip()]
 
 	if not lista_talles:
-		frappe.throw("Debe ingresar al menos un talle")
+		frappe.throw("Debe ingresar al menos un atributo")
 
 	if isinstance(cantidades, str):
 		cantidades = json.loads(cantidades)
@@ -209,6 +218,20 @@ def crear_producto(
 
 	if not barcodes_variantes:
 		barcodes_variantes = {}
+
+	barcodes_a_verificar = {}
+	for t in lista_talles:
+		barcodes_a_verificar[t] = (
+			barcodes_variantes.get(t) if barcodes_variantes.get(t) else generar_barcode(nombre, t)
+		)
+
+	for talle, barcode in barcodes_a_verificar.items():
+		if barcode:
+			barcode_existe = frappe.db.sql(
+				"SELECT COUNT(*) FROM `tabItem Barcode` WHERE barcode = %s", (barcode,)
+			)[0][0]
+			if barcode_existe > 0:
+				frappe.throw(f"El código de barras '{barcode}' ya está en uso")
 
 	# 🔹 Categoría (solo crea si no existe - el usuario selecciona del dropdown)
 	if not frappe.db.exists("Item Group", categoria):

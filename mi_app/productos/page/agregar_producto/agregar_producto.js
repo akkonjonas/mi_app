@@ -19,7 +19,7 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
             </div>
 
             <div class="form-group">
-                <label>Descripción</label>
+                <label>Descripción *</label>
                 <textarea id="descripcion" class="form-control" placeholder="Descripción" tabindex="2"></textarea>
             </div>
             </div>
@@ -37,7 +37,7 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                     </div>
                 </div>
                 <div class="col">
-                    <label>Categoría *</label>
+                    <label>Categoría</label>
                     <div class="input-group">
                         <select id="categoria" class="form-control" tabindex="4">
                             <option value="">Seleccionar...</option>
@@ -85,12 +85,12 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
             </div>
 
             <div class="form-group">
-                <label>Talles (separados por coma) *</label>
+                <label>Atributos (separados por coma) *</label>
                 <input id="talles" class="form-control" placeholder="S, M, L, XL">
             </div>
 
             <div id="talles-container" class="form-group" style="display:none;">
-                <label>Cantidad por talle:</label>
+                <label>Stock por atributo:</label>
                 <div id="cantidades-talles"></div>
             </div>
 
