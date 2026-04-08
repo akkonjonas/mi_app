@@ -443,31 +443,29 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                     </select>
                 </div>
                 <div style="margin: 10px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                    <label style="display:flex;align-items:center;gap:5px;">
-                        <input type="checkbox" id="seleccionar-todos"> Seleccionar todos
+                    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                        <input type="checkbox" id="seleccionar-todos" style="width:14px;height:14px;"> 
+                        <span>Seleccionar todos</span>
                     </label>
-                    <span style="margin-left: 15px;">Porcentaje:</span>
-                    <input type="number" id="porcentaje-input" class="form-control" style="width:80px;" placeholder="%" value="0">
-                    <button onclick="aplicarAjustePorcentaje()" class="btn-ajuste btn-aumentar">+</button>
-                    <button onclick="aplicarAjustePorcentaje(true)" class="btn-ajuste btn-disminuir">-</button>
-                    <button onclick="aplicarFijarPrecio()" class="btn-ajuste btn-fijar">Fijar Precio</button>
+                    <button onclick="mostrarDialogoAjuste()" class="btn btn-default" style="margin-left:auto;">⚙️ Ajustar Precios</button>
                 </div>
-                <table class="tabla-productos">
-                    <thead>
-                        <tr>
-                            <th></th>
-                            <th>Producto</th>
-                            <th>Marca</th>
-                            <th>Categoría</th>
-                            <th>Precio Actual</th>
-                            <th>Nuevo Precio</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabla-productos-body">
-                        <tr><td colspan="6" style="text-align:center;">Realice una búsqueda para mostrar productos</td></tr>
-                    </tbody>
-                </table>
-                <button onclick="actualizarPrecios()" class="btn btn-actualizar">💾 Actualizar Precios</button>
+                <div id="tabla-productos-container" style="max-height:400px;overflow-y:auto;">
+                    <table class="table table-bordered table-sm" style="margin-bottom:0;">
+                        <thead class="bg-light">
+                            <tr>
+                                <th style="width:30px;"></th>
+                                <th>Producto</th>
+                                <th>Marca</th>
+                                <th>Categoría</th>
+                                <th style="width:100px;">Precio</th>
+                                <th style="width:100px;">Nuevo Precio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-productos-body">
+                        </tbody>
+                    </table>
+                </div>
+                <button onclick="actualizarPrecios()" class="btn btn-success btn-sm" style="margin-top:10px;">💾 Actualizar Precios</button>
             </div>
             
             <div class="footer-credits">
@@ -498,6 +496,8 @@ function cargarProductos() {
     let marca = $("#filtro-marca").val();
     let categoria = $("#filtro-categoria").val();
     
+    $("#tabla-productos-body").html('<tr><td colspan="6" class="text-center text-muted"><span class="indicator-pulse"></span> Cargando...</td></tr>');
+    
     frappe.call({
         method: "mi_app.productos.page.agregar_producto.agregar_producto.get_lista_productos",
         args: {
@@ -506,34 +506,116 @@ function cargarProductos() {
             categoria: categoria
         },
         callback: function(r) {
+            let tbody = $("#tabla-productos-body");
+            tbody.html("");
             if (r.message && r.message.length > 0) {
-                let tbody = $("#tabla-productos-body");
-                tbody.html("");
                 r.message.forEach(function(prod) {
+                    let precio = parseFloat(prod.precio) || 0;
                     tbody.append(`
-                        <tr>
-                            <td><input type="checkbox" class="checkbox-seleccionar" data-item="${prod.item_code}"></td>
+                        <tr data-item-code="${prod.item_code}">
+                            <td class="text-center">
+                                <input type="checkbox" class="checkbox-seleccionar" data-item="${prod.item_code}">
+                            </td>
                             <td>${prod.item_code}</td>
-                            <td>${prod.brand}</td>
-                            <td>${prod.item_group}</td>
-                            <td>${parseFloat(prod.precio).toFixed(2)}</td>
-                            <td><input type="number" class="precio-input" data-actual="${prod.precio}" value="${prod.precio}" step="0.01" min="0"></td>
+                            <td>${prod.brand || '-'}</td>
+                            <td>${prod.item_group || '-'}</td>
+                            <td class="text-right">${precio.toFixed(2)}</td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm precio-input" 
+                                       data-actual="${precio}" value="${precio}" step="0.01" min="0">
+                            </td>
                         </tr>
                     `);
                 });
             } else {
-                $("#tabla-productos-body").html("<tr><td colspan='6' style='text-align:center;'>No se encontraron productos</td></tr>");
+                tbody.html('<tr><td colspan="6" class="text-center text-muted">No se encontraron productos</td></tr>');
             }
         }
     });
 }
 
-$("#filtro-buscar, #filtro-marca, #filtro-categoria").on("input change", function() {
+let filtroTimeout;
+$("#filtro-buscar").on("input", function() {
+    clearTimeout(filtroTimeout);
+    filtroTimeout = setTimeout(cargarProductos, 300);
+});
+
+$("#filtro-marca, #filtro-categoria").on("change", function() {
     cargarProductos();
 });
 
 $(document).ready(function() {
     cargarProductos();
+});
+
+function mostrarDialogoAjuste() {
+    let dialog = new frappe.Dialog({
+        title: 'Ajustar Precios',
+        fields: [
+            {
+                fieldtype: 'Select',
+                label: 'Tipo de Ajuste',
+                fieldname: 'tipo',
+                options: [
+                    {value: 'aumentar', label: 'Aumentar %'},
+                    {value: 'disminuir', label: 'Disminuir %'},
+                    {value: 'fijar', label: 'Fijar Precio'}
+                ],
+                default: 'aumentar'
+            },
+            {
+                fieldtype: 'Data',
+                label: 'Valor (%)',
+                fieldname: 'valor',
+                depends_on: 'eval:doc.tipo!="fijar"'
+            },
+            {
+                fieldtype: 'Currency',
+                label: 'Precio Fijo',
+                fieldname: 'precio_fijo',
+                depends_on: 'eval:doc.tipo=="fijar"'
+            }
+        ],
+        primary_action_label: 'Aplicar',
+        primary_action: function(data) {
+            aplicarAjusteGlobal(data);
+            dialog.hide();
+        }
+    });
+    dialog.show();
+}
+
+function aplicarAjusteGlobal(data) {
+    let tipo = data.tipo;
+    let valor = parseFloat(data.valor) || 0;
+    let precio_fijo = parseFloat(data.precio_fijo) || 0;
+    
+    $(".checkbox-seleccionar:checked").each(function() {
+        let fila = $(this).closest("tr");
+        let precio_actual = parseFloat(fila.find(".precio-input").data("actual")) || 0;
+        let nuevo_precio = precio_actual;
+        
+        if (tipo === 'aumentar' && valor > 0) {
+            nuevo_precio = precio_actual * (1 + valor / 100);
+        } else if (tipo === 'disminuir' && valor > 0) {
+            nuevo_precio = precio_actual * (1 - valor / 100);
+        } else if (tipo === 'fijar' && precio_fijo > 0) {
+            nuevo_precio = precio_fijo;
+        }
+        
+        fila.find(".precio-input").val(nuevo_precio.toFixed(2));
+    });
+}
+
+$("#seleccionar-todos").on("change", function() {
+    let checked = this.checked;
+    $(".checkbox-seleccionar").prop("checked", checked);
+});
+
+$(document).on("change", ".checkbox-seleccionar", function() {
+    let totalCheckboxes = $(".checkbox-seleccionar").length;
+    let checkedCheckboxes = $(".checkbox-seleccionar:checked").length;
+    $("#seleccionar-todos").prop("checked", totalCheckboxes === checkedCheckboxes);
 });
 
 function actualizarPrecios() {
@@ -612,11 +694,6 @@ function aplicarFijarPrecio() {
         frappe.msgprint("Seleccione productos primero");
     }
 }
-
-$("#seleccionar-todos").change(function() {
-    let checked = this.checked;
-    $(".checkbox-seleccionar").prop("checked", checked);
-});
 
 function cargarWarehouses() {
     frappe.call({
