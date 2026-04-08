@@ -31,22 +31,24 @@ def generar_barcodes_default(nombre, talles):
 
 @frappe.whitelist()
 def crear_item_group(nombre):
-	if not frappe.db.exists("Item Group", nombre):
-		frappe.get_doc(
-			{
-				"doctype": "Item Group",
-				"item_group_name": nombre,
-				"parent_item_group": obtener_grupo_raiz(),
-				"is_group": 0,
-			}
-		).insert()
+	if frappe.db.exists("Item Group", nombre):
+		frappe.throw(f"La categoría '{nombre}' ya existe")
+	frappe.get_doc(
+		{
+			"doctype": "Item Group",
+			"item_group_name": nombre,
+			"parent_item_group": obtener_grupo_raiz(),
+			"is_group": 0,
+		}
+	).insert()
 	return nombre
 
 
 @frappe.whitelist()
 def crear_brand(nombre):
-	if not frappe.db.exists("Brand", nombre):
-		frappe.get_doc({"doctype": "Brand", "brand": nombre}).insert()
+	if frappe.db.exists("Brand", nombre):
+		frappe.throw(f"La marca '{nombre}' ya existe")
+	frappe.get_doc({"doctype": "Brand", "brand": nombre}).insert()
 	return nombre
 
 
@@ -208,7 +210,7 @@ def crear_producto(
 	if not barcodes_variantes:
 		barcodes_variantes = {}
 
-	# 🔹 Categoría
+	# 🔹 Categoría (solo crea si no existe - el usuario selecciona del dropdown)
 	if not frappe.db.exists("Item Group", categoria):
 		frappe.get_doc(
 			{
@@ -219,7 +221,7 @@ def crear_producto(
 			}
 		).insert()
 
-	# 🔹 Marca
+	# 🔹 Marca (solo crea si no existe)
 	if marca and not frappe.db.exists("Brand", marca):
 		frappe.get_doc({"doctype": "Brand", "brand": marca}).insert()
 

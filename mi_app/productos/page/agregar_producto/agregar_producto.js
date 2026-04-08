@@ -74,9 +74,19 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                 </div>
             </div>
 
+            <div class="form-group" style="margin-top: 10px;">
+                <label>
+                    <input type="checkbox" id="usar-stock-minimo"> Agregar stock mínimo a todas las variantes
+                </label>
+            </div>
+            <div id="stock-minimo-container" class="form-group" style="display:none;">
+                <label>Stock mínimo por variante</label>
+                <input type="number" id="stock-minimo" class="form-control" placeholder="Cantidad mínima" min="0" value="1">
+            </div>
+
             <div class="form-group">
                 <label>Talles (separados por coma) *</label>
-                <input id="talles" class="form-control" placeholder="S, M, L, XL" tabindex="8">
+                <input id="talles" class="form-control" placeholder="S, M, L, XL">
             </div>
 
             <div id="talles-container" class="form-group" style="display:none;">
@@ -99,6 +109,10 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
     cargarWarehouses();
     cargarItemGroups();
     cargarMarcas();
+    
+    $("#usar-stock-minimo").change(function() {
+        $("#stock-minimo-container").toggle(this.checked);
+    });
 };
 
 function cargarWarehouses() {
@@ -157,6 +171,9 @@ function agregarNuevaMarca() {
                     $("#marca").val(r.message);
                     frappe.msgprint("Marca creada: " + r.message);
                 }
+            },
+            error: function(r) {
+                frappe.msgprint("Error: La marca '" + nombre.trim() + "' ya existe");
             }
         });
     }
@@ -174,6 +191,9 @@ function agregarNuevaCategoria() {
                     $("#categoria").val(r.message);
                     frappe.msgprint("Categoría creada: " + r.message);
                 }
+            },
+            error: function(r) {
+                frappe.msgprint("Error: La categoría '" + nombre.trim() + "' ya existe");
             }
         });
     }
@@ -191,6 +211,9 @@ function agregarNuevaSubcategoria() {
                     $("#subcategoria").val(r.message);
                     frappe.msgprint("Subcategoría creada: " + r.message);
                 }
+            },
+            error: function(r) {
+                frappe.msgprint("Error: La subcategoría '" + nombre.trim() + "' ya existe");
             }
         });
     }
@@ -273,6 +296,22 @@ function crearProducto() {
         }
     });
 
+    let usarStockMinimo = $("#usar-stock-minimo").is(":checked");
+    let stockMinimo = parseInt($("#stock-minimo").val()) || 0;
+
+    if (usarStockMinimo && stockMinimo > 0) {
+        let tallesInput = $("#talles").val().split(",");
+        tallesInput.forEach(function(t) {
+            let talle = t.trim();
+            if (talle) {
+                if (!cantidades[talle]) {
+                    cantidades[talle] = 0;
+                }
+                cantidades[talle] += stockMinimo;
+            }
+        });
+    }
+
     frappe.call({
         method: "mi_app.productos.page.agregar_producto.agregar_producto.crear_producto",
         args: {
@@ -290,6 +329,9 @@ function crearProducto() {
         callback: function(r) {
             frappe.msgprint("Producto creado correctamente");
             
+            let usarStockMinimo = $("#usar-stock-minimo").is(":checked");
+            let stockMinimo = parseInt($("#stock-minimo").val()) || 0;
+            
             let producto = {
                 nombre: $("#nombre").val(),
                 descripcion: $("#descripcion").val(),
@@ -298,6 +340,8 @@ function crearProducto() {
                 subcategoria: $("#subcategoria").val(),
                 precio: $("#precio").val(),
                 warehouse: $("#warehouse").val(),
+                usarStockMinimo: usarStockMinimo,
+                stockMinimo: stockMinimo,
                 cantidades: cantidades,
                 barcodes: barcodes_variantes
             };
@@ -319,6 +363,9 @@ function limpiarFormulario() {
     $("#talles").val("");
     $("#cantidades-talles").html("");
     $("#talles-container").hide();
+    $("#usar-stock-minimo").prop("checked", false);
+    $("#stock-minimo-container").hide();
+    $("#stock-minimo").val("1");
     $("#nombre").focus();
 }
 
@@ -362,6 +409,9 @@ function editarProducto(index) {
     $("#precio").val(prod.precio || "");
     $("#warehouse").val(prod.warehouse || "");
     $("#talles").val(Object.keys(prod.cantidades).join(", "));
+    $("#usar-stock-minimo").prop("checked", prod.usarStockMinimo || false);
+    $("#stock-minimo").val(prod.stockMinimo || 1);
+    $("#stock-minimo-container").toggle(prod.usarStockMinimo || false);
     
     actualizarTalles();
     
