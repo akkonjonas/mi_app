@@ -387,3 +387,50 @@ def generar_etiquetas_html(etiquetas):
 	)
 
 	return html
+
+
+@frappe.whitelist()
+def get_lista_productos(filtro=None, marca=None, categoria=None, subcategoria=None):
+	filters = {"is_stock_item": 1}
+
+	if filtro:
+		filters["item_code"] = ["like", f"%{filtro}%"]
+	if marca:
+		filters["brand"] = marca
+	if categoria:
+		filters["item_group"] = categoria
+
+	items = frappe.get_all(
+		"Item",
+		filters=filters,
+		fields=["name", "item_code", "item_name", "brand", "item_group", "standard_rate"],
+		order_by="item_code",
+		limit=100,
+	)
+
+	return [
+		{
+			"name": i.name,
+			"item_code": i.item_code,
+			"brand": i.brand or "",
+			"item_group": i.item_group or "",
+			"precio": i.standard_rate or 0,
+		}
+		for i in items
+	]
+
+
+@frappe.whitelist()
+def actualizar_precios(items_precios):
+	if isinstance(items_precios, str):
+		items_precios = json.loads(items_precios)
+
+	for item_data in items_precios:
+		item_code = item_data.get("item_code")
+		nuevo_precio = float(item_data.get("precio", 0))
+
+		if item_code and nuevo_precio > 0:
+			frappe.db.set_value("Item", item_code, "standard_rate", nuevo_precio)
+
+	frappe.db.commit()
+	return f"Precios actualizados para {len(items_precios)} productos"

@@ -200,6 +200,57 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                 font-size: 12px;
                 border-top: 1px solid #dee2e6;
             }
+            .filtros-panel {
+                background: #f8f9fa;
+                border-radius: 10px;
+                padding: 15px;
+                margin-top: 30px;
+            }
+            .filtros-panel .filtros-row {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin-bottom: 15px;
+            }
+            .filtros-panel select, .filtros-panel input {
+                flex: 1;
+                min-width: 150px;
+            }
+            .tabla-productos {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 15px;
+            }
+            .tabla-productos th, .tabla-productos td {
+                padding: 10px;
+                text-align: left;
+                border-bottom: 1px solid #dee2e6;
+            }
+            .tabla-productos th {
+                background: #ecf0f1;
+                font-weight: 600;
+            }
+            .tabla-productos input.precio-input {
+                width: 100px;
+                padding: 5px;
+            }
+            .btn-actualizar {
+                background: #27ae60;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-weight: 600;
+                margin-top: 10px;
+            }
+            .btn-actualizar:hover {
+                background: #219a52;
+            }
+            .checkbox-seleccionar {
+                width: 18px;
+                height: 18px;
+            }
             .checkbox-custom {
                 display: flex;
                 align-items: center;
@@ -354,6 +405,46 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                 </div>
             </div>
             
+            <div class="filtros-panel">
+                <h4 style="margin-top:0;">📋 Actualizar Precios</h4>
+                <div class="filtros-row">
+                    <input type="text" id="filtro-buscar" class="form-control" placeholder="Buscar producto...">
+                    <select id="filtro-marca" class="form-control">
+                        <option value="">Todas las marcas</option>
+                    </select>
+                    <select id="filtro-categoria" class="form-control">
+                        <option value="">Todas las categorías</option>
+                    </select>
+                    <button onclick="cargarProductos()" class="btn btn-primary">🔍 Buscar</button>
+                </div>
+                <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <label>
+                        <input type="checkbox" id="seleccionar-todos"> Seleccionar todos
+                    </label>
+                    <span style="margin-left: 20px;">Ajustes rápidos:</span>
+                    <button onclick="aplicarPorcentaje(10)" class="btn btn-sm" style="background:#27ae60;color:white;padding:5px 10px;">+10%</button>
+                    <button onclick="aplicarPorcentaje(-10)" class="btn btn-sm" style="background:#e74c3c;color:white;padding:5px 10px;">-10%</button>
+                    <button onclick="aplicarPorcentaje(20)" class="btn btn-sm" style="background:#27ae60;color:white;padding:5px 10px;">+20%</button>
+                    <button onclick="aplicarPorcentaje(-20)" class="btn btn-sm" style="background:#e74c3c;color:white;padding:5px 10px;">-20%</button>
+                </div>
+                <table class="tabla-productos">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Producto</th>
+                            <th>Marca</th>
+                            <th>Categoría</th>
+                            <th>Precio Actual</th>
+                            <th>Nuevo Precio</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-productos-body">
+                        <tr><td colspan="6" style="text-align:center;">Realice una búsqueda para mostrar productos</td></tr>
+                    </tbody>
+                </table>
+                <button onclick="actualizarPrecios()" class="btn btn-actualizar">💾 Actualizar Precios</button>
+            </div>
+            
             <div class="footer-credits">
                 <p>🔧 Desarrollado por <strong>Saltamontech - Silva Jonás</strong></p>
                 <p>📦 <strong>Todos los derechos reservados para Odín Suite</strong></p>
@@ -365,6 +456,7 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
     cargarWarehouses();
     cargarItemGroups();
     cargarMarcas();
+    cargarFiltrosPrecios();
     
     $("#usar-stock-minimo").change(function() {
         $("#stock-minimo-container").toggle(this.checked);
@@ -375,6 +467,94 @@ function toggleAyuda() {
     $("#ayuda-contenido").toggleClass("show");
     $("#ayuda-toggle-icon").text($("#ayuda-contenido").hasClass("show") ? "▲" : "▼");
 }
+
+function cargarProductos() {
+    let filtro = $("#filtro-buscar").val();
+    let marca = $("#filtro-marca").val();
+    let categoria = $("#filtro-categoria").val();
+    
+    frappe.call({
+        method: "mi_app.productos.page.agregar_producto.agregar_producto.get_lista_productos",
+        args: {
+            filtro: filtro,
+            marca: marca,
+            categoria: categoria
+        },
+        callback: function(r) {
+            if (r.message && r.message.length > 0) {
+                let tbody = $("#tabla-productos-body");
+                tbody.html("");
+                r.message.forEach(function(prod) {
+                    tbody.append(`
+                        <tr>
+                            <td><input type="checkbox" class="checkbox-seleccionar" data-item="${prod.item_code}"></td>
+                            <td>${prod.item_code}</td>
+                            <td>${prod.brand}</td>
+                            <td>${prod.item_group}</td>
+                            <td>${parseFloat(prod.precio).toFixed(2)}</td>
+                            <td><input type="number" class="precio-input" data-actual="${prod.precio}" value="${prod.precio}" step="0.01" min="0"></td>
+                        </tr>
+                    `);
+                });
+            } else {
+                $("#tabla-productos-body").html("<tr><td colspan='6' style='text-align:center;'>No se encontraron productos</td></tr>");
+            }
+        }
+    });
+}
+
+function actualizarPrecios() {
+    let items_precios = [];
+    
+    $(".checkbox-seleccionar:checked").each(function() {
+        let item_code = $(this).data("item");
+        let fila = $(this).closest("tr");
+        let nuevo_precio = parseFloat(fila.find(".precio-input").val()) || 0;
+        
+        if (nuevo_precio > 0) {
+            items_precios.push({
+                item_code: item_code,
+                precio: nuevo_precio
+            });
+        }
+    });
+    
+    if (items_precios.length === 0) {
+        frappe.msgprint("Seleccione al menos un producto para actualizar");
+        return;
+    }
+    
+    frappe.call({
+        method: "mi_app.productos.page.agregar_producto.agregar_producto.actualizar_precios",
+        args: {
+            items_precios: JSON.stringify(items_precios)
+        },
+        callback: function(r) {
+            frappe.msgprint(r.message);
+            cargarProductos();
+        }
+    });
+}
+
+function aplicarPorcentaje(porcentaje) {
+    let contador = 0;
+    $(".checkbox-seleccionar:checked").each(function() {
+        let fila = $(this).closest("tr");
+        let precio_actual = parseFloat(fila.find(".precio-input").data("actual")) || 0;
+        let nuevo_precio = precio_actual * (1 + porcentaje / 100);
+        fila.find(".precio-input").val(nuevo_precio.toFixed(2));
+        contador++;
+    });
+    
+    if (contador === 0) {
+        frappe.msgprint("Seleccione productos primero");
+    }
+}
+
+$("#seleccionar-todos").change(function() {
+    let checked = this.checked;
+    $(".checkbox-seleccionar").prop("checked", checked);
+});
 
 function cargarWarehouses() {
     frappe.call({
@@ -414,6 +594,32 @@ function cargarMarcas() {
                 var select = $("#marca");
                 r.message.forEach(function(m) {
                     select.append(new Option(m, m));
+                });
+            }
+        }
+    });
+}
+
+function cargarFiltrosPrecios() {
+    frappe.call({
+        method: "mi_app.productos.page.agregar_producto.agregar_producto.get_brands",
+        callback: function(r) {
+            if (r.message) {
+                var select = $("#filtro-marca");
+                r.message.forEach(function(m) {
+                    select.append(new Option(m, m));
+                });
+            }
+        }
+    });
+    
+    frappe.call({
+        method: "mi_app.productos.page.agregar_producto.agregar_producto.get_item_groups",
+        callback: function(r) {
+            if (r.message) {
+                var select = $("#filtro-categoria");
+                r.message.forEach(function(g) {
+                    select.append(new Option(g, g));
                 });
             }
         }
