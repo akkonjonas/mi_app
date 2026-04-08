@@ -391,7 +391,7 @@ def generar_etiquetas_html(etiquetas):
 
 @frappe.whitelist()
 def get_lista_productos(filtro=None, marca=None, categoria=None, subcategoria=None):
-	filters = {"is_stock_item": 1}
+	filters = {"is_stock_item": 1, "variant_of": ["!=", ""]}
 
 	if filtro:
 		filters["item_code"] = ["like", f"%{filtro}%"]

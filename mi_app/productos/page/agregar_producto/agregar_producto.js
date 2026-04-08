@@ -248,8 +248,34 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                 background: #219a52;
             }
             .checkbox-seleccionar {
-                width: 18px;
-                height: 18px;
+                width: 14px;
+                height: 14px;
+                cursor: pointer;
+            }
+            #seleccionar-todos {
+                width: 14px;
+                height: 14px;
+                cursor: pointer;
+            }
+            .btn-ajuste {
+                padding: 4px 12px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 13px;
+                margin-right: 5px;
+            }
+            .btn-aumentar {
+                background: #27ae60;
+                color: white;
+            }
+            .btn-disminuir {
+                background: #e74c3c;
+                color: white;
+            }
+            .btn-fijar {
+                background: #3498db;
+                color: white;
             }
             .checkbox-custom {
                 display: flex;
@@ -415,17 +441,16 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                     <select id="filtro-categoria" class="form-control">
                         <option value="">Todas las categorías</option>
                     </select>
-                    <button onclick="cargarProductos()" class="btn btn-primary">🔍 Buscar</button>
                 </div>
-                <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                    <label>
+                <div style="margin: 10px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <label style="display:flex;align-items:center;gap:5px;">
                         <input type="checkbox" id="seleccionar-todos"> Seleccionar todos
                     </label>
-                    <span style="margin-left: 20px;">Ajustes rápidos:</span>
-                    <button onclick="aplicarPorcentaje(10)" class="btn btn-sm" style="background:#27ae60;color:white;padding:5px 10px;">+10%</button>
-                    <button onclick="aplicarPorcentaje(-10)" class="btn btn-sm" style="background:#e74c3c;color:white;padding:5px 10px;">-10%</button>
-                    <button onclick="aplicarPorcentaje(20)" class="btn btn-sm" style="background:#27ae60;color:white;padding:5px 10px;">+20%</button>
-                    <button onclick="aplicarPorcentaje(-20)" class="btn btn-sm" style="background:#e74c3c;color:white;padding:5px 10px;">-20%</button>
+                    <span style="margin-left: 15px;">Porcentaje:</span>
+                    <input type="number" id="porcentaje-input" class="form-control" style="width:80px;" placeholder="%" value="0">
+                    <button onclick="aplicarAjustePorcentaje()" class="btn-ajuste btn-aumentar">+</button>
+                    <button onclick="aplicarAjustePorcentaje(true)" class="btn-ajuste btn-disminuir">-</button>
+                    <button onclick="aplicarFijarPrecio()" class="btn-ajuste btn-fijar">Fijar Precio</button>
                 </div>
                 <table class="tabla-productos">
                     <thead>
@@ -503,6 +528,14 @@ function cargarProductos() {
     });
 }
 
+$("#filtro-buscar, #filtro-marca, #filtro-categoria").on("input change", function() {
+    cargarProductos();
+});
+
+$(document).ready(function() {
+    cargarProductos();
+});
+
 function actualizarPrecios() {
     let items_precios = [];
     
@@ -536,13 +569,42 @@ function actualizarPrecios() {
     });
 }
 
-function aplicarPorcentaje(porcentaje) {
+function aplicarAjustePorcentaje(disminuir = false) {
+    let porcentaje = parseFloat($("#porcentaje-input").val()) || 0;
+    if (porcentaje === 0) {
+        frappe.msgprint("Ingrese un porcentaje");
+        return;
+    }
+    
+    if (disminuir) {
+        porcentaje = -porcentaje;
+    }
+    
     let contador = 0;
     $(".checkbox-seleccionar:checked").each(function() {
         let fila = $(this).closest("tr");
         let precio_actual = parseFloat(fila.find(".precio-input").data("actual")) || 0;
         let nuevo_precio = precio_actual * (1 + porcentaje / 100);
         fila.find(".precio-input").val(nuevo_precio.toFixed(2));
+        contador++;
+    });
+    
+    if (contador === 0) {
+        frappe.msgprint("Seleccione productos primero");
+    }
+}
+
+function aplicarFijarPrecio() {
+    let precio_fijo = parseFloat($("#porcentaje-input").val()) || 0;
+    if (precio_fijo === 0) {
+        frappe.msgprint("Ingrese un precio");
+        return;
+    }
+    
+    let contador = 0;
+    $(".checkbox-seleccionar:checked").each(function() {
+        let fila = $(this).closest("tr");
+        fila.find(".precio-input").val(precio_fijo.toFixed(2));
         contador++;
     });
     
