@@ -406,7 +406,7 @@ def get_items_list(filters=None):
 	items = frappe.get_all(
 		"Item",
 		filters=f,
-		fields=["name", "item_code", "item_name", "brand", "item_group", "standard_rate", "qty"],
+		fields=["name", "item_code", "item_name", "brand", "item_group", "standard_rate"],
 		order_by="modified desc",
 		limit=50,
 	)
