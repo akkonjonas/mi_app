@@ -10,99 +10,334 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
     window.tabIndex = 10;
 
     $(wrapper).html(`
-        <div class="form-layout">
-            <h3>Nuevo Producto</h3>
+        <style>
+            .agregar-producto-container {
+                max-width: 900px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .panel-custom {
+                background: #fff;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                padding: 25px;
+                margin-bottom: 20px;
+            }
+            .panel-header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px 10px 0 0;
+                margin: -25px -25px 20px -25px;
+            }
+            .panel-header h3 {
+                margin: 0;
+                font-weight: 600;
+            }
+            .form-group label {
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 5px;
+            }
+            .required-field::after {
+                content: " *";
+                color: #e74c3c;
+            }
+            .btn-agregar {
+                background: #27ae60;
+                color: white;
+                border: none;
+                padding: 8px 15px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-weight: 600;
+            }
+            .btn-agregar:hover {
+                background: #219a52;
+            }
+            .btn-guardar {
+                background: #3498db;
+                color: white;
+                border: none;
+                padding: 12px 30px;
+                border-radius: 5px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            .btn-guardar:hover {
+                background: #2980b9;
+            }
+            .btn-limpiar {
+                background: #95a5a6;
+                color: white;
+                border: none;
+                padding: 12px 25px;
+                border-radius: 5px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            .btn-limpiar:hover {
+                background: #7f8c8d;
+            }
+            .btn-imprimir {
+                background: #e67e22;
+                color: white;
+                border: none;
+                padding: 12px 25px;
+                border-radius: 5px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            .btn-imprimir:hover {
+                background: #d35400;
+            }
+            .btn-block {
+                display: block;
+                width: 100%;
+            }
+            .atributo-card {
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+            .atributo-card .atributo-nombre {
+                font-weight: 700;
+                color: #2c3e50;
+                min-width: 60px;
+            }
+            .atributo-card input {
+                flex: 1;
+            }
+            .producto-card {
+                background: #fff;
+                border-left: 4px solid #3498db;
+                padding: 15px;
+                margin-bottom: 10px;
+                border-radius: 5px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .producto-info {
+                flex: 1;
+            }
+            .producto-info strong {
+                color: #2c3e50;
+                font-size: 16px;
+            }
+            .producto-info .detalles {
+                color: #7f8c8d;
+                font-size: 13px;
+                margin-top: 5px;
+            }
+            .producto-acciones {
+                display: flex;
+                gap: 8px;
+            }
+            .btn-icon {
+                padding: 6px 10px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+            .btn-editar {
+                background: #f39c12;
+                color: white;
+            }
+            .btn-eliminar {
+                background: #e74c3c;
+                color: white;
+            }
+            .btn-imprimir-item {
+                background: #9b59b6;
+                color: white;
+            }
+            .ayuda-panel {
+                background: #ecf0f1;
+                border-radius: 10px;
+                padding: 20px;
+                margin-top: 30px;
+            }
+            .ayuda-panel h4 {
+                color: #2c3e50;
+                margin-top: 0;
+            }
+            .ayuda-panel ol {
+                color: #34495e;
+                line-height: 1.8;
+            }
+            .footer-credits {
+                text-align: center;
+                padding: 20px;
+                margin-top: 30px;
+                color: #7f8c8d;
+                font-size: 12px;
+                border-top: 1px solid #dee2e6;
+            }
+            .checkbox-custom {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px;
+                background: #f8f9fa;
+                border-radius: 5px;
+            }
+            .checkbox-custom input {
+                width: 18px;
+                height: 18px;
+            }
+            .checkbox-custom label {
+                margin: 0;
+                font-weight: 500;
+            }
+            .stock-input {
+                border-color: #3498db !important;
+            }
+            .barcode-input {
+                border-color: #9b59b6 !important;
+            }
+            .input-error {
+                border-color: #e74c3c !important;
+            }
+        </style>
+        
+        <div class="agregar-producto-container">
+            <div class="panel-custom">
+                <div class="panel-header">
+                    <h3>Agregar Nuevo Producto</h3>
+                </div>
+                
+                <div class="form-group">
+                    <label class="required-field">Nombre del Producto</label>
+                    <input id="nombre" class="form-control" placeholder="Ej: Zapatillas Nike Air Max" tabindex="1">
+                </div>
 
-            <div class="form-group">
-                <label>Nombre *</label>
-                <input id="nombre" class="form-control" placeholder="Nombre del producto" tabindex="1">
-            </div>
+                <div class="form-group">
+                    <label class="required-field">Descripción</label>
+                    <textarea id="descripcion" class="form-control" rows="2" placeholder="Descripción detallada del producto" tabindex="2"></textarea>
+                </div>
 
-            <div class="form-group">
-                <label>Descripción *</label>
-                <textarea id="descripcion" class="form-control" placeholder="Descripción" tabindex="2"></textarea>
-            </div>
-            </div>
-
-            <div class="form-row">
-                <div class="col">
-                    <label>Marca</label>
-                    <div class="input-group">
-                        <select id="marca" class="form-control" tabindex="3">
-                            <option value="">Seleccionar...</option>
-                        </select>
-                        <span class="input-group-btn">
-                            <button type="button" class="btn btn-default" onclick="agregarNuevaMarca()" title="Agregar nueva marca" tabindex="-1">+</button>
-                        </span>
+                <div class="form-row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Marca</label>
+                            <div class="input-group">
+                                <select id="marca" class="form-control" tabindex="3">
+                                    <option value="">Seleccionar marca...</option>
+                                </select>
+                                <span class="input-group-btn">
+                                    <button type="button" class="btn btn-agregar" onclick="agregarNuevaMarca()" title="Crear nueva marca" tabindex="-1">+</button>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Categoría</label>
+                            <div class="input-group">
+                                <select id="categoria" class="form-control" tabindex="4">
+                                    <option value="">Seleccionar categoría...</option>
+                                </select>
+                                <span class="input-group-btn">
+                                    <button type="button" class="btn btn-agregar" onclick="agregarNuevaCategoria()" title="Crear nueva categoría" tabindex="-1">+</button>
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="col">
-                    <label>Categoría</label>
-                    <div class="input-group">
-                        <select id="categoria" class="form-control" tabindex="4">
-                            <option value="">Seleccionar...</option>
-                        </select>
-                        <span class="input-group-btn">
-                            <button type="button" class="btn btn-default" onclick="agregarNuevaCategoria()" title="Agregar nueva categoría" tabindex="-1">+</button>
-                        </span>
+
+                <div class="form-row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Subcategoría</label>
+                            <div class="input-group">
+                                <select id="subcategoria" class="form-control" tabindex="5">
+                                    <option value="">Seleccionar subcategoría...</option>
+                                </select>
+                                <span class="input-group-btn">
+                                    <button type="button" class="btn btn-agregar" onclick="agregarNuevaSubcategoria()" title="Crear nueva subcategoría" tabindex="-1">+</button>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="required-field">Precio</label>
+                            <input id="precio" class="form-control" type="number" step="0.01" placeholder="0.00" tabindex="6">
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="form-row">
-                <div class="col">
-                    <label>Subcategoría</label>
-                    <div class="input-group">
-                        <select id="subcategoria" class="form-control" tabindex="5">
-                            <option value="">Seleccionar...</option>
-                        </select>
-                        <span class="input-group-btn">
-                            <button type="button" class="btn btn-default" onclick="agregarNuevaSubcategoria()" title="Agregar nueva subcategoría" tabindex="-1">+</button>
-                        </span>
-                    </div>
-                </div>
-                <div class="col">
-                    <label>Precio</label>
-                    <input id="precio" class="form-control" type="number" step="0.01" placeholder="Precio" tabindex="6">
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="col">
-                    <label>Warehouse</label>
+                <div class="form-group">
+                    <label>Warehouse (Almacén)</label>
                     <select id="warehouse" class="form-control" tabindex="7"></select>
                 </div>
-            </div>
 
-            <div class="form-group" style="margin-top: 10px;">
-                <label>
-                    <input type="checkbox" id="usar-stock-minimo"> Agregar stock mínimo a todas las variantes
-                </label>
-            </div>
-            <div id="stock-minimo-container" class="form-group" style="display:none;">
-                <label>Stock mínimo por variante</label>
-                <input type="number" id="stock-minimo" class="form-control" placeholder="Cantidad mínima" min="0" value="1">
-            </div>
+                <div class="checkbox-custom">
+                    <input type="checkbox" id="usar-stock-minimo" tabindex="8">
+                    <label for="usar-stock-minimo">Agregar stock mínimo a todas las variantes</label>
+                </div>
+                <div id="stock-minimo-container" class="form-group" style="display:none; margin-left: 28px;">
+                    <label>Cantidad mínima por variante:</label>
+                    <input type="number" id="stock-minimo" class="form-control" style="max-width: 200px;" placeholder="1" min="0" value="1">
+                </div>
 
-            <div class="form-group">
-                <label>Atributos (separados por coma) *</label>
-                <input id="talles" class="form-control" placeholder="S, M, L, XL">
-            </div>
+                <div class="form-group">
+                    <label class="required-field">Atributos (separados por coma)</label>
+                    <input id="talles" class="form-control" placeholder="Ej: S, M, L, XL, XXL" tabindex="9">
+                </div>
 
-            <div id="talles-container" class="form-group" style="display:none;">
-                <label>Stock por atributo:</label>
-                <div id="cantidades-talles"></div>
-            </div>
+                <div id="talles-container" class="form-group" style="display:none;">
+                    <label>Stock por atributo:</label>
+                    <div id="cantidades-talles"></div>
+                </div>
 
-            <button onclick="actualizarTalles()" class="btn btn-default" tabindex="9">Agregar Talles</button>
-            <button onclick="crearProducto()" class="btn btn-primary" tabindex="100">Guardar</button>
-            <button onclick="limpiarFormulario()" class="btn btn-default" tabindex="101">Limpiar</button>
-            <button onclick="imprimirTodasEtiquetas()" class="btn btn-info" style="display:none;" id="btn-imprimir-todas" tabindex="102">Imprimir Todas las Etiquetas</button>
-        </div>
-        
-        <div class="form-layout" style="margin-top: 30px;">
-            <h4>Productos Creados</h4>
-            <div id="lista-productos-creados"></div>
+                <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
+                    <button onclick="actualizarTalles()" class="btn btn-limpiar" tabindex="10">Agregar Atributos</button>
+                    <button onclick="crearProducto()" class="btn btn-guardar" tabindex="100">💾 Guardar Producto</button>
+                    <button onclick="limpiarFormulario()" class="btn btn-limpiar" tabindex="101">🔄 Limpiar</button>
+                    <button onclick="imprimirTodasEtiquetas()" class="btn btn-imprimir" style="display:none;" id="btn-imprimir-todas" tabindex="102">🖨️ Imprimir Todas las Etiquetas</button>
+                </div>
+            </div>
+            
+            <div class="panel-custom" id="productos-panel" style="display: none;">
+                <div class="panel-header" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);">
+                    <h4>Productos Creados (<span id="contador-productos">0</span>)</h4>
+                </div>
+                <div id="lista-productos-creados"></div>
+            </div>
+            
+            <div class="ayuda-panel">
+                <h4>📖 Guía de Uso</h4>
+                <ol>
+                    <li><strong>Nombre y Descripción:</strong> Complete los datos básicos del producto (campos obligatorios).</li>
+                    <li><strong>Marca y Categoría:</strong> Seleccione del listado o cree nuevas opciones con el botón +.</li>
+                    <li><strong>Precio:</strong> Ingrese el precio de venta del producto (obligatorio).</li>
+                    <li><strong>Warehouse:</strong> Seleccione el almacén donde se guardará el stock.</li>
+                    <li><strong>Stock Mínimo:</strong> Active esta opción si desea agregar una cantidad base a todas las variantes.</li>
+                    <li><strong>Atributos:</strong> Ingrese los talles/colores separados por coma (campo obligatorio).</li>
+                    <li><strong>Agregar Atributos:</strong> Haga clic para crear los campos de stock y código de barras.</li>
+                    <li><strong>Stock y Códigos:</strong> Complete las cantidades y opcionalmente modifique los códigos de barras.</li>
+                    <li><strong>Guardar:</strong> El producto se crea y queda en lista para imprimir etiquetas.</li>
+                    <li><strong>Imprimir:</strong> Genere las etiquetas con códigos de barras para pegar en los productos.</li>
+                </ol>
+            </div>
+            
+            <div class="footer-credits">
+                <p>🔧 Desarrollado por <strong>Saltamontech - Silva Jonás</strong></p>
+                <p>📦 <strong>Todos los derechos reservados para Odín Suite</strong></p>
+                <p>Versión 1.0.0</p>
+            </div>
         </div>
     `);
 
@@ -236,16 +471,10 @@ function actualizarTalles() {
         if (talle) {
             hayTalles = true;
             container.append(`
-                <div class="form-row" style="margin-bottom: 10px;">
-                    <div class="col-md-2">
-                        <strong>${talle}</strong>
-                    </div>
-                    <div class="col-md-4">
-                        <input type="number" class="form-control cantidad-talle" data-talle="${talle}" placeholder="Stock" min="0" tabindex="${tabStock}">
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" class="form-control barcode-talle" data-talle="${talle}" placeholder="Código de barras" value="" tabindex="${tabBarcode}">
-                    </div>
+                <div class="atributo-card">
+                    <div class="atributo-nombre">${talle}</div>
+                    <input type="number" class="form-control cantidad-talle stock-input" data-talle="${talle}" placeholder="Stock" min="0" tabindex="${tabStock}">
+                    <input type="text" class="form-control barcode-talle barcode-input" data-talle="${talle}" placeholder="Código de barras" value="" tabindex="${tabBarcode}">
                 </div>
             `);
             tabStock++;
@@ -377,16 +606,17 @@ function actualizarListaProductos() {
         let talles = Object.keys(prod.cantidades).join(", ");
         let totalStock = Object.values(prod.cantidades).reduce((a,b)=>a+b, 0);
         let html = `
-            <div class="form-row" style="margin-bottom: 5px; padding: 5px; border-bottom: 1px solid #eee; align-items: center;">
-                <div class="col-md-3"><strong>${prod.nombre}</strong></div>
-                <div class="col-md-3">Talles: ${talles}</div>
-                <div class="col-md-2">Stock: ${totalStock}</div>
-                <div class="col-md-2">
-                    <button class="btn btn-xs btn-default" onclick="editarProducto(${index})" title="Editar">✏️</button>
-                    <button class="btn btn-xs btn-danger" onclick="eliminarProducto(${index})" title="Eliminar">🗑️</button>
+            <div class="producto-card">
+                <div class="producto-info">
+                    <strong>${prod.nombre}</strong>
+                    <div class="detalles">
+                        📦 Atributos: ${talles} | Stock Total: ${totalStock}
+                    </div>
                 </div>
-                <div class="col-md-2">
-                    <button class="btn btn-xs btn-info" onclick="imprimirProductoIndividual(${index})" title="Imprimir etiquetas">🖨️</button>
+                <div class="producto-acciones">
+                    <button class="btn-icon btn-editar" onclick="editarProducto(${index})" title="Editar">✏️</button>
+                    <button class="btn-icon btn-eliminar" onclick="eliminarProducto(${index})" title="Eliminar">🗑️</button>
+                    <button class="btn-icon btn-imprimir-item" onclick="imprimirProductoIndividual(${index})" title="Imprimir etiquetas">🖨️</button>
                 </div>
             </div>
         `;
@@ -395,6 +625,11 @@ function actualizarListaProductos() {
     
     if (window.productosCreados.length > 0) {
         $("#btn-imprimir-todas").show();
+        $("#productos-panel").show();
+        $("#contador-productos").text(window.productosCreados.length);
+    } else {
+        $("#btn-imprimir-todas").hide();
+        $("#productos-panel").hide();
     }
 }
 
@@ -555,7 +790,6 @@ function imprimirEtiquetas(nombre, cantidades, barcodes_variantes) {
                     printWindow.print();
                 }, 500);
             }
-            window.location.reload();
         }
     });
 }
