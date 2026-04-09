@@ -517,6 +517,7 @@ function cargarItems() {
     let marca = $("#item-marca").val();
     let categoria = $("#item-categoria").val();
     
+    window.cargandoMas = false;
     window.currentOffset = 0;
     window.currentSearch = search;
     window.currentMarca = marca;
@@ -529,6 +530,9 @@ function cargarItems() {
 }
 
 function cargarMasItems() {
+    if (window.cargandoMas) return;
+    window.cargandoMas = true;
+    
     $("#items-grid").find(".loading-more").remove();
     $("#items-grid").append('<div class="loading-more text-center p-3">Cargando más...</div>');
     
@@ -545,6 +549,7 @@ function cargarMasItems() {
         },
         callback: function(r) {
             $(".loading-more").remove();
+            window.cargandoMas = false;
             
             if (r.message && r.message.items) {
                 window.itemsCargados = window.itemsCargados.concat(r.message.items);
@@ -555,9 +560,13 @@ function cargarMasItems() {
             } else if (r.message && r.message.length > 0) {
                 window.itemsCargados = window.itemsCargados.concat(r.message);
                 window.currentOffset += r.message.length;
+                window.hasMore = r.message.length >= 50;
                 
                 renderItemsTable(window.itemsCargados);
             }
+        },
+        error: function() {
+            window.cargandoMas = false;
         }
     });
 }
@@ -576,11 +585,14 @@ function renderItemsTable(items) {
                 <div class="col-md-2">
                     <input type="number" id="valor-actualizacion" class="form-control" placeholder="Valor">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
                     <button onclick="actualizarPreciosMasivo()" class="btn btn-warning btn-block">💰 Actualizar Precios</button>
                 </div>
+                <div class="col-md-2">
+                    <button onclick="seleccionarTodos()" class="btn btn-info btn-block">☑️ Seleccionar Todo</button>
+                </div>
                 <div class="col-md-4">
-                    <button onclick="seleccionarTodos()" class="btn btn-info btn-block">☑️ Seleccionar Todos</button>
+                    <button onclick="guardarTodosCambios()" class="btn btn-success btn-block">💾 Guardar Cambios Manuales</button>
                 </div>
             </div>
         </div>
@@ -607,9 +619,9 @@ function renderItemsTable(items) {
                 <td>${item.item_code}</td>
                 <td>${item.brand || '-'}</td>
                 <td>${item.item_group || '-'}</td>
-                <td class="text-right">${parseFloat(item.precio || 0).toFixed(2)}</td>
-                <td class="text-center ${stockClass}">${item.stock || 0}</td>
-                <td class="text-center">${item.stock_minimo || 0}</td>
+                <td><input type="number" class="form-control input-sm precio-input" data-item="${item.item_code}" value="${parseInt(item.precio) || 0}"></td>
+                <td><input type="number" class="form-control input-sm stock-input" data-item="${item.item_code}" data-stock-actual="${item.stock || 0}" value="${item.stock || 0}"></td>
+                <td><input type="number" class="form-control input-sm stock-minimo-input" data-item="${item.item_code}" value="${item.stock_minimo || 0}"></td>
             </tr>
         `;
     });
@@ -625,6 +637,72 @@ function renderItemsTable(items) {
         if ($(window).scrollTop() + $(window).height() >= $(document).height() - 100) {
             if (window.hasMore && !$(".loading-more").length) {
                 cargarMasItems();
+            }
+        }
+    });
+    
+    $(".precio-input, .stock-minimo-input").on('change', function() {
+        let tr = $(this).closest('tr');
+        let itemCode = tr.find('.precio-input').data('item');
+        let precio = tr.find('.precio-input').val();
+        let stockMinimo = tr.find('.stock-minimo-input').val();
+        
+        window.cambiosPendientes = window.cambiosPendientes || {};
+        window.cambiosPendientes[itemCode] = window.cambiosPendientes[itemCode] || {};
+        window.cambiosPendientes[itemCode].precio = precio;
+        window.cambiosPendientes[itemCode].stock_minimo = stockMinimo;
+    });
+    
+    $(".stock-input").on('change', function() {
+        let itemCode = $(this).data('item');
+        let nuevoStock = parseFloat($(this).val());
+        let stockActual = parseFloat($(this).data('stock-actual'));
+        let diferencia = nuevoStock - stockActual;
+        
+        if (diferencia !== 0) {
+            window.cambiosPendientes = window.cambiosPendientes || {};
+            window.cambiosPendientes[itemCode] = window.cambiosPendientes[itemCode] || {};
+            window.cambiosPendientes[itemCode].stock_diferencia = diferencia;
+        }
+    });
+}
+
+function guardarTodosCambios() {
+    let itemsActualizar = [];
+    let itemsStock = [];
+    
+    for (let [itemCode, cambios] of Object.entries(window.cambiosPendientes || {})) {
+        if (cambios.precio !== undefined || cambios.stock_minimo !== undefined) {
+            itemsActualizar.push({
+                item_code: itemCode,
+                precio: cambios.precio,
+                stock_minimo: cambios.stock_minimo
+            });
+        }
+        if (cambios.stock_diferencia !== undefined) {
+            itemsStock.push({
+                item_code: itemCode,
+                cantidad: cambios.stock_diferencia
+            });
+        }
+    }
+    
+    if (itemsActualizar.length === 0 && itemsStock.length === 0) {
+        frappe.show_alert("No hay cambios pendientes", 2);
+        return;
+    }
+    
+    frappe.call({
+        method: "mi_app.productos.page.agregar_producto.agregar_producto.guardar_cambios_lote",
+        args: {
+            items_data: JSON.stringify(itemsActualizar),
+            items_stock: JSON.stringify(itemsStock)
+        },
+        callback: function(r) {
+            if (r.message && r.message.success) {
+                window.cambiosPendientes = {};
+                frappe.show_alert("✅ Guardados: " + r.message.actualizados + " precios, " + r.message.stock_ajustados + " stocks", 3);
+                cargarItems();
             }
         }
     });

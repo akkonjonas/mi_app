@@ -510,3 +510,219 @@ def actualizar_precios_masivo(items_data, tipo_actualizacion, valor):
 			errores.append(f"{item_code}: {str(e)}")
 
 	return {"actualizados": actualizados, "errors": errores}
+
+
+@frappe.whitelist()
+def guardar_cambios_lote(items_data=None, items_stock=None):
+	if isinstance(items_data, str):
+		items_data = json.loads(items_data) if items_data else []
+	elif not items_data:
+		items_data = []
+
+	if isinstance(items_stock, str):
+		items_stock = json.loads(items_stock) if items_stock else []
+	elif not items_stock:
+		items_stock = []
+
+	actualizados = 0
+	stock_ajustados = 0
+
+	for item in items_data:
+		item_code = item.get("item_code")
+		precio = item.get("precio")
+		stock_minimo = item.get("stock_minimo")
+
+		if not item_code:
+			continue
+
+		try:
+			doc = frappe.get_doc("Item", item_code)
+			cambios = []
+
+			if precio is not None and precio != "":
+				precio_val = float(precio)
+				doc.standard_rate = precio_val
+				cambios.append("precio")
+
+			if stock_minimo is not None and stock_minimo != "":
+				stock_minimo_val = float(stock_minimo)
+				doc.minimum_order_qty = stock_minimo_val
+				cambios.append("stock_minimo")
+
+			if cambios:
+				doc.save()
+				frappe.db.commit()
+				actualizados += 1
+
+			if precio is not None and precio != "":
+				precio_val = float(precio)
+
+				default_price_list = frappe.db.get_value("Selling Settings", None, "selling_price_list")
+				if default_price_list:
+					price_exists = frappe.db.exists(
+						"Item Price", {"item_code": item_code, "price_list": default_price_list}
+					)
+					if price_exists:
+						price_doc = frappe.get_doc("Item Price", price_exists)
+						price_doc.price_list_rate = precio_val
+						price_doc.save()
+					else:
+						frappe.get_doc(
+							{
+								"doctype": "Item Price",
+								"item_code": item_code,
+								"price_list": default_price_list,
+								"price_list_rate": precio_val,
+								"currency": frappe.defaults.get_user_default("currency") or "USD",
+							}
+						).insert()
+					frappe.db.commit()
+
+				pos_price_list = frappe.db.get_value("POS Settings", None, "selling_price_list")
+				if pos_price_list and pos_price_list != default_price_list:
+					price_exists = frappe.db.exists(
+						"Item Price", {"item_code": item_code, "price_list": pos_price_list}
+					)
+					if price_exists:
+						price_doc = frappe.get_doc("Item Price", price_exists)
+						price_doc.price_list_rate = precio_val
+						price_doc.save()
+					else:
+						frappe.get_doc(
+							{
+								"doctype": "Item Price",
+								"item_code": item_code,
+								"price_list": pos_price_list,
+								"price_list_rate": precio_val,
+								"currency": frappe.defaults.get_user_default("currency") or "USD",
+							}
+						).insert()
+					frappe.db.commit()
+
+		except Exception as e:
+			frappe.log_error(f"Error actualizando {item_code}: {str(e)}", "Error actualizar item")
+
+	for item in items_stock:
+		item_code = item.get("item_code")
+		cantidad = item.get("cantidad")
+
+		if not item_code or cantidad is None:
+			continue
+
+		try:
+			cantidad = float(cantidad)
+			if cantidad == 0:
+				continue
+
+			warehouses = frappe.get_all("Warehouse", filters={"is_group": 0}, fields=["name"], limit=1)
+			if not warehouses:
+				continue
+			warehouse = warehouses[0].name
+
+			wh_doc = frappe.get_doc("Warehouse", warehouse)
+			compania = wh_doc.company
+
+			stock_entry_dict = {
+				"doctype": "Stock Entry",
+				"stock_entry_type": "Material Receipt" if cantidad > 0 else "Material Issue",
+				"company": compania,
+				"items": [{"item_code": item_code, "qty": abs(cantidad), "t_warehouse": warehouse}],
+			}
+			if cantidad > 0:
+				stock_entry_dict["to_warehouse"] = warehouse
+			else:
+				stock_entry_dict["from_warehouse"] = warehouse
+
+			stock_entry = frappe.get_doc(stock_entry_dict)
+			stock_entry.insert()
+			stock_entry.submit()
+			stock_ajustados += 1
+		except Exception as e:
+			frappe.log_error(f"Error ajustando stock {item_code}: {str(e)}", "Error ajustar stock")
+
+	if actualizados > 0 or stock_ajustados > 0:
+		frappe.db.commit()
+
+	return {"success": True, "actualizados": actualizados, "stock_ajustados": stock_ajustados}
+	if not item_code:
+		frappe.throw("El código del producto es obligatorio")
+
+	item = frappe.get_doc("Item", item_code)
+	actualizado = []
+
+	precio_val = precio
+	stock_minimo_val = stock_minimo
+
+	if isinstance(precio_val, str):
+		precio_val = None if precio_val == "" or precio_val == "null" else precio_val
+	if isinstance(stock_minimo_val, str):
+		stock_minimo_val = None if stock_minimo_val == "" or stock_minimo_val == "null" else stock_minimo_val
+
+	if precio_val is not None:
+		try:
+			item.standard_rate = float(precio_val)
+			actualizado.append("precio")
+		except:
+			pass
+
+	if stock_minimo_val is not None:
+		try:
+			item.minimum_order_qty = float(stock_minimo_val)
+			actualizado.append("stock mínimo")
+		except:
+			pass
+
+	if actualizado:
+		item.save()
+		frappe.db.commit()
+
+	return {"success": True, "actualizado": actualizado}
+
+
+@frappe.whitelist()
+def ajustar_stock(item_code, cantidad, warehouse=None):
+	if not item_code:
+		frappe.throw("El código del producto es obligatorio")
+	if cantidad is None or cantidad == "":
+		frappe.throw("La cantidad es obligatoria")
+
+	cantidad = float(cantidad)
+
+	if not warehouse:
+		warehouses = frappe.get_all("Warehouse", filters={"is_group": 0}, fields=["name"], limit=1)
+		if not warehouses:
+			frappe.throw("No hay warehouses disponibles")
+		warehouse = warehouses[0].name
+
+	wh_doc = frappe.get_doc("Warehouse", warehouse)
+	compania = wh_doc.company
+
+	stock_entry_dict = {
+		"doctype": "Stock Entry",
+		"stock_entry_type": "Material Receipt" if cantidad > 0 else "Material Issue",
+		"company": compania,
+		"items": [
+			{
+				"item_code": item_code,
+				"qty": abs(cantidad),
+				"t_warehouse": warehouse,
+			}
+		],
+	}
+
+	if cantidad > 0:
+		stock_entry_dict["to_warehouse"] = warehouse
+	else:
+		stock_entry_dict["from_warehouse"] = warehouse
+
+	stock_entry = frappe.get_doc(stock_entry_dict)
+
+	stock_entry.insert()
+	stock_entry.submit()
+	frappe.db.commit()
+
+	return {
+		"success": True,
+		"action": "agregado" if cantidad > 0 else "descontado",
+		"cantidad": abs(cantidad),
+	}
