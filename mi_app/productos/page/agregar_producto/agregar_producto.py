@@ -101,7 +101,7 @@ def generar_barcode(nombre, talle):
 
 # 🔹 Crear variante
 def crear_variante_manual(
-	template, talle, precio, categoria, marca, subcategoria, barcode_personalizado=None
+	template, talle, precio, categoria, marca, subcategoria, barcode_personalizado=None, stock_minimo=None
 ):
 	nombre_variante = f"{template}-{talle}"
 
@@ -120,6 +120,9 @@ def crear_variante_manual(
 			"is_stock_item": 1,
 		}
 	)
+
+	if stock_minimo:
+		variante.minimum_order_qty = float(stock_minimo)
 
 	variante.append("attributes", {"attribute": "Talle", "attribute_value": talle})
 
@@ -184,6 +187,7 @@ def crear_producto(
 	barcodes_variantes=None,
 	es_edicion=False,
 	nombre_original=None,
+	stock_minimo=None,
 ):
 	# 🔴 VALIDACIONES
 	if not nombre:
@@ -286,10 +290,12 @@ def crear_producto(
 	# 🔹 CREAR VARIANTES
 	items_creados = []
 
+	stock_minimo_val = float(stock_minimo) if stock_minimo and stock_minimo != "" else None
+
 	for t in lista_talles:
 		barcode_personalizado = barcodes_variantes.get(t) if barcodes_variantes else None
 		item_code = crear_variante_manual(
-			nombre, t, precio, categoria, marca, subcategoria, barcode_personalizado
+			nombre, t, precio, categoria, marca, subcategoria, barcode_personalizado, stock_minimo_val
 		)
 		items_creados.append(item_code)
 
@@ -411,13 +417,85 @@ def get_items_list(filters=None):
 		limit=50,
 	)
 
-	return [
-		{
-			"name": i.name,
-			"item_code": i.item_code,
-			"brand": i.brand or "",
-			"item_group": i.item_group or "",
-			"precio": i.standard_rate or 0,
-		}
-		for i in items
-	]
+	result = []
+	for i in items:
+		stock = get_stock_actual(i.item_code)
+		stock_minimo = get_stock_minimo(i.item_code)
+		result.append(
+			{
+				"name": i.name,
+				"item_code": i.item_code,
+				"brand": i.brand or "",
+				"item_group": i.item_group or "",
+				"precio": i.standard_rate or 0,
+				"stock": stock,
+				"stock_minimo": stock_minimo,
+			}
+		)
+
+	return result
+
+
+def get_stock_actual(item_code):
+	try:
+		sle = frappe.db.sql(
+			"""
+			SELECT SUM(actual_qty) as qty
+			FROM `tabStock Ledger Entry`
+			WHERE item_code = %s
+			ORDER BY posting_date DESC, creation DESC
+			LIMIT 1
+		""",
+			(item_code,),
+		)
+		return sle[0][0] if sle and sle[0][0] else 0
+	except:
+		return 0
+
+
+def get_stock_minimo(item_code):
+	try:
+		doc = frappe.get_doc("Item", item_code)
+		return doc.minimum_order_qty or 0
+	except:
+		return 0
+
+
+@frappe.whitelist()
+def actualizar_precios_masivo(items_data, tipo_actualizacion, valor):
+	if isinstance(items_data, str):
+		items_data = json.loads(items_data)
+
+	if not items_data:
+		frappe.throw("No se seleccionaron productos")
+
+	if not tipo_actualizacion in ["fijar", "aumentar", "disminuir"]:
+		frappe.throw("Tipo de actualización inválido")
+
+	if tipo_actualizacion != "fijar":
+		if valor is None or valor == "" or float(valor) <= 0:
+			frappe.throw("El porcentaje debe ser mayor a 0")
+		porcentaje = float(valor) / 100.0
+
+	actualizados = 0
+	errores = []
+
+	for item_code in items_data:
+		try:
+			item = frappe.get_doc("Item", item_code)
+
+			if tipo_actualizacion == "fijar":
+				item.standard_rate = float(valor)
+			elif tipo_actualizacion == "aumentar":
+				if item.standard_rate:
+					item.standard_rate = item.standard_rate * (1 + porcentaje)
+			elif tipo_actualizacion == "disminuir":
+				if item.standard_rate:
+					item.standard_rate = item.standard_rate * (1 - porcentaje)
+
+			item.save()
+			actualizados += 1
+		except Exception as e:
+			errores.append(f"{item_code}: {str(e)}")
+
+	return {"actualizados": actualizados, "errors": errores}

@@ -527,24 +527,51 @@ function cargarItems() {
         callback: function(r) {
             if (r.message && r.message.length > 0) {
                 let html = `
+                    <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                        <div class="form-row align-items-center">
+                            <div class="col-md-3">
+                                <select id="tipo-actualizacion" class="form-control">
+                                    <option value="fijar">Fijar precio</option>
+                                    <option value="aumentar">Aumentar %</option>
+                                    <option value="disminuir">Disminuir %</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="number" id="valor-actualizacion" class="form-control" placeholder="Valor">
+                            </div>
+                            <div class="col-md-3">
+                                <button onclick="actualizarPreciosMasivo()" class="btn btn-warning btn-block">💰 Actualizar Precios</button>
+                            </div>
+                            <div class="col-md-3">
+                                <button onclick="seleccionarTodos()" class="btn btn-info btn-block">☑️ Seleccionar Todos</button>
+                            </div>
+                        </div>
+                    </div>
                     <table class="table table-bordered table-sm">
                         <thead class="bg-light">
                             <tr>
+                                <th><input type="checkbox" id="select-all-items" onchange="toggleSelectAll()"></th>
                                 <th>Producto</th>
                                 <th>Marca</th>
                                 <th>Categoría</th>
                                 <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Stock Mín</th>
                             </tr>
                         </thead>
                         <tbody>
                 `;
                 r.message.forEach(function(item) {
+                    let stockClass = item.stock <= item.stock_minimo ? 'text-danger font-weight-bold' : '';
                     html += `
                         <tr>
+                            <td><input type="checkbox" class="item-checkbox" value="${item.item_code}"></td>
                             <td>${item.item_code}</td>
                             <td>${item.brand || '-'}</td>
                             <td>${item.item_group || '-'}</td>
                             <td class="text-right">${parseFloat(item.precio || 0).toFixed(2)}</td>
+                            <td class="text-center ${stockClass}">${item.stock || 0}</td>
+                            <td class="text-center">${item.stock_minimo || 0}</td>
                         </tr>
                     `;
                 });
@@ -764,7 +791,8 @@ function crearProducto() {
             cantidades: cantidades,
             barcodes_variantes: barcodes_variantes,
             es_edicion: window.esEdicion || false,
-            nombre_original: window.nombreOriginalEdicion || null
+            nombre_original: window.nombreOriginalEdicion || null,
+            stock_minimo: stockMinimo || null
         },
         callback: function(r) {
             frappe.msgprint("Producto guardado correctamente");
@@ -1004,6 +1032,55 @@ function imprimirEtiquetas(nombre, cantidades, barcodes_variantes) {
                 setTimeout(function() {
                     printWindow.print();
                 }, 500);
+            }
+        }
+    });
+}
+
+function toggleSelectAll() {
+    var checked = $("#select-all-items").prop("checked");
+    $(".item-checkbox").prop("checked", checked);
+}
+
+function seleccionarTodos() {
+    $(".item-checkbox").prop("checked", true);
+    $("#select-all-items").prop("checked", true);
+}
+
+function actualizarPreciosMasivo() {
+    var itemsSeleccionados = [];
+    $(".item-checkbox:checked").each(function() {
+        itemsSeleccionados.push($(this).val());
+    });
+    
+    if (itemsSeleccionados.length === 0) {
+        frappe.msgprint("Seleccione al menos un producto");
+        return;
+    }
+    
+    var tipo = $("#tipo-actualizacion").val();
+    var valor = $("#valor-actualizacion").val();
+    
+    if (tipo !== "fijar" && (!valor || parseFloat(valor) <= 0)) {
+        frappe.msgprint("Ingrese un valor válido");
+        return;
+    }
+    
+    frappe.call({
+        method: "mi_app.productos.page.agregar_producto.agregar_producto.actualizar_precios_masivo",
+        args: {
+            items_data: JSON.stringify(itemsSeleccionados),
+            tipo_actualizacion: tipo,
+            valor: valor
+        },
+        callback: function(r) {
+            if (r.message) {
+                var msg = "✅ Actualizados: " + r.message.actualizados;
+                if (r.message.errors && r.message.errors.length > 0) {
+                    msg += "\n❌ Errores: " + r.message.errors.length;
+                }
+                frappe.msgprint(msg);
+                cargarItems();
             }
         }
     });
