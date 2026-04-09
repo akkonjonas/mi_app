@@ -409,13 +409,19 @@ def get_items_list(filters=None):
 	if filters.get("categoria"):
 		f["item_group"] = filters.get("categoria")
 
+	limit = filters.get("limit", 50)
+	offset = filters.get("offset", 0)
+
 	items = frappe.get_all(
 		"Item",
 		filters=f,
 		fields=["name", "item_code", "item_name", "brand", "item_group", "standard_rate"],
 		order_by="modified desc",
-		limit=50,
+		limit=limit,
+		start=offset,
 	)
+
+	total = frappe.db.count("Item", f)
 
 	result = []
 	for i in items:
@@ -433,7 +439,12 @@ def get_items_list(filters=None):
 			}
 		)
 
-	return result
+	return {
+		"items": result,
+		"total": total,
+		"offset": offset + len(items),
+		"has_more": (offset + len(items)) < total,
+	}
 
 
 def get_stock_actual(item_code):

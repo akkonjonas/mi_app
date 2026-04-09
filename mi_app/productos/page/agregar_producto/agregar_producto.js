@@ -451,10 +451,10 @@ frappe.pages['agregar-producto'].on_page_load = function(wrapper) {
                             </select>
                         </div>
                         <div class="col-md-2">
-                            <button onclick="cargarItems()" class="btn btn-primary btn-block">🔍</button>
+                            <button onclick="limpiarFiltros()" class="btn btn-secondary btn-block">🔄</button>
                         </div>
                     </div>
-                    <div id="items-grid" style="max-height: 400px; overflow-y: auto;"></div>
+                    <div id="items-grid"></div>
                 </div>
             </div>
             
@@ -517,71 +517,124 @@ function cargarItems() {
     let marca = $("#item-marca").val();
     let categoria = $("#item-categoria").val();
     
+    window.currentOffset = 0;
+    window.currentSearch = search;
+    window.currentMarca = marca;
+    window.currentCategoria = categoria;
+    window.itemsCargados = [];
+    
     $("#items-grid").html('<div class="text-center text-muted p-3">Cargando...</div>');
+    
+    cargarMasItems();
+}
+
+function cargarMasItems() {
+    $("#items-grid").find(".loading-more").remove();
+    $("#items-grid").append('<div class="loading-more text-center p-3">Cargando más...</div>');
     
     frappe.call({
         method: "mi_app.productos.page.agregar_producto.agregar_producto.get_items_list",
         args: {
-            filters: JSON.stringify({search: search, marca: marca, categoria: categoria})
+            filters: JSON.stringify({
+                search: window.currentSearch, 
+                marca: window.currentMarca, 
+                categoria: window.currentCategoria,
+                limit: 50,
+                offset: window.currentOffset
+            })
         },
         callback: function(r) {
-            if (r.message && r.message.length > 0) {
-                let html = `
-                    <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
-                        <div class="form-row align-items-center">
-                            <div class="col-md-3">
-                                <select id="tipo-actualizacion" class="form-control">
-                                    <option value="fijar">Fijar precio</option>
-                                    <option value="aumentar">Aumentar %</option>
-                                    <option value="disminuir">Disminuir %</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <input type="number" id="valor-actualizacion" class="form-control" placeholder="Valor">
-                            </div>
-                            <div class="col-md-3">
-                                <button onclick="actualizarPreciosMasivo()" class="btn btn-warning btn-block">💰 Actualizar Precios</button>
-                            </div>
-                            <div class="col-md-3">
-                                <button onclick="seleccionarTodos()" class="btn btn-info btn-block">☑️ Seleccionar Todos</button>
-                            </div>
-                        </div>
-                    </div>
-                    <table class="table table-bordered table-sm">
-                        <thead class="bg-light">
-                            <tr>
-                                <th><input type="checkbox" id="select-all-items" onchange="toggleSelectAll()"></th>
-                                <th>Producto</th>
-                                <th>Marca</th>
-                                <th>Categoría</th>
-                                <th>Precio</th>
-                                <th>Stock</th>
-                                <th>Stock Mín</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-                r.message.forEach(function(item) {
-                    let stockClass = item.stock <= item.stock_minimo ? 'text-danger font-weight-bold' : '';
-                    html += `
-                        <tr>
-                            <td><input type="checkbox" class="item-checkbox" value="${item.item_code}"></td>
-                            <td>${item.item_code}</td>
-                            <td>${item.brand || '-'}</td>
-                            <td>${item.item_group || '-'}</td>
-                            <td class="text-right">${parseFloat(item.precio || 0).toFixed(2)}</td>
-                            <td class="text-center ${stockClass}">${item.stock || 0}</td>
-                            <td class="text-center">${item.stock_minimo || 0}</td>
-                        </tr>
-                    `;
-                });
-                html += '</tbody></table>';
-                $("#items-grid").html(html);
-            } else {
-                $("#items-grid").html('<div class="text-center text-muted p-3">No se encontraron productos</div>');
+            $(".loading-more").remove();
+            
+            if (r.message && r.message.items) {
+                window.itemsCargados = window.itemsCargados.concat(r.message.items);
+                window.currentOffset = r.message.offset;
+                window.hasMore = r.message.has_more;
+                
+                renderItemsTable(window.itemsCargados);
+            } else if (r.message && r.message.length > 0) {
+                window.itemsCargados = window.itemsCargados.concat(r.message);
+                window.currentOffset += r.message.length;
+                
+                renderItemsTable(window.itemsCargados);
             }
         }
     });
+}
+
+function renderItemsTable(items) {
+    let html = `
+        <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+            <div class="form-row align-items-center">
+                <div class="col-md-2">
+                    <select id="tipo-actualizacion" class="form-control">
+                        <option value="fijar">Fijar precio</option>
+                        <option value="aumentar">Aumentar %</option>
+                        <option value="disminuir">Disminuir %</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="number" id="valor-actualizacion" class="form-control" placeholder="Valor">
+                </div>
+                <div class="col-md-4">
+                    <button onclick="actualizarPreciosMasivo()" class="btn btn-warning btn-block">💰 Actualizar Precios</button>
+                </div>
+                <div class="col-md-4">
+                    <button onclick="seleccionarTodos()" class="btn btn-info btn-block">☑️ Seleccionar Todos</button>
+                </div>
+            </div>
+        </div>
+        <table class="table table-bordered table-sm">
+            <thead class="bg-light" style="position: sticky; top: 0;">
+                <tr>
+                    <th><input type="checkbox" id="select-all-items" onchange="toggleSelectAll()"></th>
+                    <th>Producto</th>
+                    <th>Marca</th>
+                    <th>Categoría</th>
+                    <th>Precio</th>
+                    <th>Stock</th>
+                    <th>Stock Mín</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    items.forEach(function(item) {
+        let stockClass = item.stock <= item.stock_minimo ? 'text-danger font-weight-bold' : '';
+        html += `
+            <tr>
+                <td><input type="checkbox" class="item-checkbox" value="${item.item_code}"></td>
+                <td>${item.item_code}</td>
+                <td>${item.brand || '-'}</td>
+                <td>${item.item_group || '-'}</td>
+                <td class="text-right">${parseFloat(item.precio || 0).toFixed(2)}</td>
+                <td class="text-center ${stockClass}">${item.stock || 0}</td>
+                <td class="text-center">${item.stock_minimo || 0}</td>
+            </tr>
+        `;
+    });
+    html += '</tbody></table>';
+    
+    if (window.hasMore) {
+        html += '<div class="loading-more text-center p-2 text-muted">Cargando más...</div>';
+    }
+    
+    $("#items-grid").html(html);
+    
+    $(window).on('scroll', function() {
+        if ($(window).scrollTop() + $(window).height() >= $(document).height() - 100) {
+            if (window.hasMore && !$(".loading-more").length) {
+                cargarMasItems();
+            }
+        }
+    });
+}
+
+function limpiarFiltros() {
+    $("#item-search").val("");
+    $("#item-marca").val("");
+    $("#item-categoria").val("");
+    cargarItems();
 }
 
 let itemsTimeout;
