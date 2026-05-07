@@ -5,6 +5,10 @@ app_description = "Sistema POS"
 app_email = "jonassilva580@gmail.com"
 app_license = "mit"
 
+app_include_js = [
+    "/assets/mi_app/js/pos_custom.js"
+]
+
 # Apps
 # ------------------
 
